@@ -7,15 +7,14 @@ void create_data(double **A, double *b, int rows, int cols) {
     for (int i = 0; i < rows; i++) {
         for (int j = 0; j < cols; j++) A[i][j] = (double)rand() / (double)RAND_MAX;   /* uniform in (0,1) */
         // double perturbation = (double)rand() / (double)RAND_MAX; // Random perturbation
-        b[i] = 0.2 * A[i][2] + 0.3 * A[i][4]; //+ perturbation; // Linear combination with noise
-        
+        b[i] = 2 * A[i][2] + 3 * A[i][4]; //+ perturbation; // Linear combination with noise
     }
 }
 int main() {
 
     // Example usage of the ISTA and FISTA algorithms
-    int rows = 10; // Number of rows in A
-    int cols = 10;  // Number of columns in A
+    int rows = 100; // Number of rows in A
+    int cols = 100;  // Number of columns in A
     double **A = (double **)malloc(rows * sizeof(double *));
     for (int i = 0; i < rows; i++) A[i] = (double *)malloc(cols * sizeof(double));
     double *b = (double *)malloc(rows * sizeof(double));

@@ -30,6 +30,20 @@ double calculate_norm(double *x, int n) {
     return sqrt(norm);
 }
 
+// Compute the direction of the grad (d_k)
+void calculate_direction(double* grad, double* d_k ,int cols){
+    for (int i = 0; i < cols; i++) {
+        if (grad[i] > 0) {
+            d_k[i] = -1;
+        } else if (grad[i] < 0) {
+            d_k[i] = 1;
+        } else {
+            d_k[i] = 0;
+        }
+    }
+    return;
+}
+
 // Compute the objective function value: f(x) = ||Ax - b||^2 + lambda_1 * ||x||_1 + lambda_2/2 * ||x||^2
 double f(double **A, double *b, double *x, int rows, int cols) {
     double *Ax = (double *)malloc(rows * sizeof(double));
@@ -49,7 +63,10 @@ double f(double **A, double *b, double *x, int rows, int cols) {
     //compute ||x||_1
     double l1_norm = 0;
     for (int j = 0; j < cols; j++) {
-        l1_norm += fabs(x[j]);
+        if (x[j] < 0)
+            l1_norm += -x[j];
+        else
+            l1_norm += x[j];
     }
 
     //compute ||x||_2
@@ -57,6 +74,7 @@ double f(double **A, double *b, double *x, int rows, int cols) {
     for (int j = 0; j < cols; j++) {
         l2_norm += x[j] * x[j];
     }
+    // printf("square %f, l1_norm: %f, l2_norm: %f\n", norm, l1_norm, l2_norm);
 
     return norm + LAMBDA_1 * l1_norm + LAMBDA_2 / 2 * l2_norm;
 }
@@ -105,12 +123,22 @@ double back_tracking_line_search(double **A, double *b, double *x, double *grad,
     int iter = 0;
     while (1) {
         // Compute the new x
-        for (int i = 0; i < cols; i++) {
+        for (int i = 0; i < cols; i++) {           
             x_new[i] = x[i] - t * grad[i];
         }
+        // shrink(x_new, LAMBDA_1 * t, cols);
 
+        // printf("iter: %i, t: %f\n", iter, t);
         // Compute the new function value
         double f_new = f(A, b, x_new, rows, cols);
+
+        if (iter < 0){
+            printf("x_new: %f, %f, %f, %f\n", x_new[0], x_new[1], x_new[2], x_new[3]);
+            printf("fx : %f, f_new :  %f,  t: %f\n", f_x, f_new,  t);
+        }
+            
+
+
         
         // Check the Armijo condition
         double armijo_condition = f_x - f_new;
@@ -119,13 +147,14 @@ double back_tracking_line_search(double **A, double *b, double *x, double *grad,
         for (int i = 0; i < cols; i++) {
             grad_dot += grad[i] * (x[i] - x_new[i]);
         }
-        if (armijo_condition >= C_ARMIJO * t * grad_dot) {
+        if (armijo_condition >= C_ARMIJO * t * calculate_norm(grad, cols)) {
             break; // Armijo condition satisfied
         }
         
         // if not, reduce the step size
         t *= ALPHA;
-
+        if (iter < 0)
+            printf("t_k: %f, f_new: %f, iter: %i, armijo_condition: %f\n", t, f_new, iter, armijo_condition);
         // Free the temporary x_new
         iter++;
     }

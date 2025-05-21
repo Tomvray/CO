@@ -4,7 +4,7 @@
 double* ista(double *x, double **A, double *b, int rows, int cols) {
 
     // double t_k = 1.0 / compute_lipschitz(A, rows, cols); // Lipschitz constant
-    double t_k;
+    double t_k = T_0;
     double *grad = (double *)malloc(cols * sizeof(double));
     double *x_new = (double *)malloc(cols * sizeof(double));
 
@@ -67,12 +67,12 @@ double* fista(double *x, double **A, double *b, int rows, int cols){
         compute_gradient(A, b, y, grad, rows, cols);
 
         // compute new t_k
-        t_k = back_tracking_line_search(A, b, y, grad, rows, cols);
+        t_k = back_tracking_line_search(A, b, x, grad, rows, cols);
 
         //printf("t_k: %f\n", t_k);
 
         // x_new = y - t_k * grad g(y_k)
-        for (int i = 0; i < cols; i++) 
+        for (int i = 0; i < cols; i++)
             x_new[i] = y[i] - t_k * grad[i];
         
         //shrink (x_k - t_k * grad; LAMBDA_1 * t_k)
@@ -99,7 +99,7 @@ double* fista(double *x, double **A, double *b, int rows, int cols){
         momentum_factor = momentum_factor_new;
 
         // Check convergence ||grad||_2 <= TOL
-        //printf("Convergence check: %f\n", calculate_norm(grad, cols));
+        // printf("Convergence check: %f\n", calculate_norm(grad, cols));
         if (calculate_norm(grad, cols) < TOL) {
             printf("FISTA converged at iteration %d\n", iter);
             break;
