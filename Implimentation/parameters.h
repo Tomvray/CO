@@ -7,7 +7,7 @@
     
     // Parameters for the simulation
     #define MAX_ITER 1e4
-    #define TOL 1e-1
+    #define TOL 1e-8
     #define T_0 1.0
 
     // Parameters for armijo condition
