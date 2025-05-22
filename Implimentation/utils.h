@@ -18,6 +18,7 @@
         double *b;
         int rows;
         int cols;
+        double t_0; // Initial step size
         objective_func prox_func; // Only used in the LBFGS approximation of the prox operator (h(x))
         grad_func prox_grad; // Only used in the LBFGS approximation of the prox operator (grad(h(x)))
         double *x; // Point arround which we are computing the prox operator
@@ -61,7 +62,10 @@
     double *compute_gradient(double **A, double *b, double *x, double *grad, int rows, int cols);
 
     //returns the step size with inexact line search backtracking
-    double back_tracking_line_search(double **A, double *b, double *x, double *grad, int rows, int cols);
+    double back_tracking_line_search(double *x, double *grad, Data data);
 
+    double power_iteration(double **A, int rows, int cols, int it_max, double tol);
+
+    double estimate_t0(double **A, int rows, int cols);
 
 #endif

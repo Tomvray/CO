@@ -88,6 +88,7 @@ int main() {
     data.b = b;
     data.rows = rows;
     data.cols = cols;
+    data.t_0 = estimate_t0(A, rows, cols);
     data.prox_func = l2_func;
     data.prox_grad = l2_grad;
 
@@ -96,6 +97,7 @@ int main() {
     problem.objective_func = obj;
     problem.grad_func = grad;
     
+    printf("t_0: %f\n", data.t_0);
     // Initialize x with zeros
     for (int i = 0; i < cols; i++) x_ista[i] = 1.0;
 

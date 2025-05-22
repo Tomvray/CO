@@ -4,11 +4,12 @@
 double* ista(double *x, Problem problem) {
 
     // double t_k = 1.0 / compute_lipschitz(A, rows, cols); // Lipschitz constant
-    double t_k = T_0;
-    int cols = problem.data.cols;
-    int rows = problem.data.rows;
-    double **A = problem.data.A;
-    double *b = problem.data.b;
+    Data data = problem.data;
+    double t_k = data.t_0;
+    int cols = data.cols;
+    int rows = data.rows;
+    double **A = data.A;
+    double *b = data.b;
     
     double *grad = (double *)malloc(cols * sizeof(double));
     double *x_new = (double *)malloc(cols * sizeof(double));
@@ -19,7 +20,7 @@ double* ista(double *x, Problem problem) {
         compute_gradient(A, b, x, grad, rows, cols);
 
         // compute new t_k
-        t_k = back_tracking_line_search(A, b, x, grad, rows, cols); 
+        //t_k = back_tracking_line_search(x, grad, data); 
 
         //printf("t_k ista: %f gradnorm: %f\n", t_k, calculate_norm(grad, cols));
 
@@ -65,7 +66,7 @@ double* fista(double *x, Problem problem) {
     int rows = data.rows;
     int cols = data.cols;
 
-    double t_k = 1;
+    double t_k = data.t_0;
     double momentum_factor = 1.0;
     double momentum_factor_new;
 
@@ -85,8 +86,9 @@ double* fista(double *x, Problem problem) {
         compute_gradient(A, b, y, grad, rows, cols);
 
         // compute new t_k
-        t_k = back_tracking_line_search(A, b, y, grad, rows, cols);
-        printf("t_k fista: %f gradnorm: %f\n", t_k, calculate_norm(grad, cols));
+        // t_k = back_tracking_line_search(x, grad, data);
+        
+        // printf("t_k fista: %f gradnorm: %f\n", t_k, calculate_norm(grad, cols));
 
         //printf("t_k: %f\n", t_k);
 
@@ -325,7 +327,7 @@ double* LBFGS_fista(double *x, int m, Problem problem) {
     int rows = data.rows;
     int cols = data.cols;
 
-    double t_k = 1;
+    double t_k = data.t_0;
     double momentum_factor = 1.0;
     double momentum_factor_new;
 
@@ -343,10 +345,10 @@ double* LBFGS_fista(double *x, int m, Problem problem) {
     for (int iter = 0; iter < MAX_ITER; iter++) {
 
         // compute gradient g(y_k) = A^T(Ay_k - b)
-        grad_LS(x, grad, data);
+        grad_LS(y, grad, data);
 
         // compute new t_k
-        t_k = back_tracking_line_search(A, b, x, grad, rows, cols);
+        //t_k = back_tracking_line_search(x, grad, data);
 
         //printf("t_k: %f\n", t_k);
 
@@ -356,7 +358,7 @@ double* LBFGS_fista(double *x, int m, Problem problem) {
             //x_new[i] = u[i];
         }
         
-        //compute prox of g
+        //compute prox
         Problem sub_prox_problem;
         sub_prox_problem.data = problem.data;
         sub_prox_problem.data.x = u;
