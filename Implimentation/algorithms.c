@@ -163,8 +163,9 @@ double* fista(double *x, Problem problem) {
     }
     free(grad);
     return x;
-}*/
-
+    }*/
+   
+static int printed = 0;
 // L-BFGS implementation
 double* L_BFGS(double* x, int m, Problem problem) {
     Data data = problem.data;
@@ -184,6 +185,7 @@ double* L_BFGS(double* x, int m, Problem problem) {
 
     double *grad_old = malloc(dimensions * sizeof(double));
     double *x_old = malloc(dimensions * sizeof(double));
+    
 
     problem.grad_func(x, grad_old, data);
     if (grad_old == NULL) {
@@ -192,7 +194,9 @@ double* L_BFGS(double* x, int m, Problem problem) {
     }
     int k = 0;
 
-    while (k < MAX_ITER && sqrt(dot_product(grad_old, grad_old, dimensions)) > TOL) {
+    //while (k < MAX_ITER && sqrt(dot_product(grad_old, grad_old, dimensions)) > TOL) {
+    while (k < MAX_ITER ) {
+        
         // q <- grad(f(x_k))
         memcpy(q, grad_old, dimensions * sizeof(double));
 
@@ -266,6 +270,14 @@ double* L_BFGS(double* x, int m, Problem problem) {
         memcpy(grad_old, grad_new, dimensions * sizeof(double));
 
         k++;
+
+        if (fabs(problem.objective_func(x, data) - problem.objective_func(x_old, data)) < TOL) {
+            if (printed == 0) {
+                printf("L-BFGS converged at iteration %i with value of f :%f\n", k, problem.objective_func(x, data));
+                printed = 1;
+            }
+            break;
+        }
     }
 
     free(q);
@@ -279,7 +291,6 @@ double* L_BFGS(double* x, int m, Problem problem) {
     free(s);
     free(y);
 
-    static int printed = 0;
     if (printed == 0) {
         printf("L-BFGS converged at iteration %i with value of f :%f\n", k, problem.objective_func(x, data));
         printed = 1;
