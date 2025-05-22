@@ -7,16 +7,21 @@
     #include <string.h>
     #include "parameters.h"
 
+    typedef struct Data Data;
+    
+    typedef double (*objective_func)(double*, Data);
+    typedef double* (*grad_func)(double*, double*, Data);
+
     // Function prototypes
     typedef struct Data {
         double **A;
         double *b;
         int rows;
         int cols;
+        objective_func prox_func; // Only used in the LBFGS approximation of the prox operator (h(x))
+        grad_func prox_grad; // Only used in the LBFGS approximation of the prox operator (grad(h(x)))
+        double *x; // Point arround which we are computing the prox operator
     }   Data;
-
-    typedef double (*objective_func)(double*, Data);
-    typedef double* (*grad_func)(double*, double*, Data);
 
     typedef struct Problem {
         Data data;
@@ -26,6 +31,19 @@
 
     // Soft-thresholding (shrinkage) operator (shrink(y, lambda * t))
     void shrink(double *y, double lambda_t, int n);
+
+    // Compute data.prox_function(u) + 1/2 * ||u - Problem.x||^2
+    // compute h(u) + 1/2 * ||u - x||^2
+    double prox_function(double *u, Data data);
+
+    // Compute the gradient of the proximal function data.grad_prox_function(u) + (u - data.x)
+    double* prox_gradient(double *u, double* grad, Data data);
+
+    // l2
+    double l2_func (double* x, Data data);
+
+    // gradient of l2
+    double* l2_grad (double* x, double* grad, Data data);
 
     // Matrix-vector multiplication: y = A * x
     void mat_vec_mult(double **A, double *x, double *y, int rows, int cols);

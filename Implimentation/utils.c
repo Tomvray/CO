@@ -12,6 +12,51 @@ void shrink(double *y, double lambda_t, int n) {
     }
 }
 
+// Compute data.prox_function(u) + 1/2 * ||u - Problem.x||^2
+// compute h(u) + 1/2 * ||u - x||^2
+double prox_function(double *u, Data data){
+    double norm = 0;
+    for (int i = 0; i < data.cols; i++) {
+        norm += (u[i] - data.x[i]) * (u[i] - data.x[i]);
+    }
+
+    return data.prox_func(u, data) + 0.5 * norm;
+}
+
+// Compute the gradient of the proximal function data.grad_prox_function(u) + (u - data.x)
+double* prox_gradient(double *u, double* grad, Data data){
+    double* grad_function_to_prox = (double *)malloc(data.cols * sizeof(double)); // grad(h(u)) 
+    if (grad_function_to_prox == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        return NULL;
+    }
+
+    data.prox_grad(u, grad_function_to_prox, data);
+    for (int i = 0; i < data.cols; i++) {
+        grad[i] = grad_function_to_prox[i] + (u[i] - data.x[i]);
+    }
+
+    free(grad_function_to_prox);
+    return grad;
+}
+
+// l2
+double l2_func (double* x, Data data){
+    double norm = 0;
+    for (int i = 0; i < data.cols; i++) {
+        norm += x[i] * x[i];
+    }
+    return norm * LAMBDA_2 * 0.5;
+}
+
+// gradient of l2
+double* l2_grad (double* x, double* grad, Data data){
+    for (int i = 0; i < data.cols; i++) {
+        grad[i] = LAMBDA_2 * x[i];
+    }
+    return grad;
+}
+
 // Matrix-vector multiplication: y = A * x
 void mat_vec_mult(double **A, double *x, double *y, int rows, int cols) {
     for (int i = 0; i < rows; i++) {
@@ -137,12 +182,13 @@ double back_tracking_line_search(double **A, double *b, double *x, double *grad,
         
         // Check the Armijo condition
         double armijo_condition = f_x - f_new;
-        double grad_dot = 0;
+        /*double grad_dot = 0;
         // Compute grad(f(x)) * direction
         for (int i = 0; i < cols; i++) {
             grad_dot += grad[i] * (x[i] - x_new[i]);
-        }
-        if (armijo_condition >= C_ARMIJO * t * calculate_norm(grad, cols)) {
+        }*/
+
+        if (armijo_condition >= C_ARMIJO * t * dot_product(grad, grad, cols)) {
             break; // Armijo condition satisfied
         }
         

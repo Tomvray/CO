@@ -31,7 +31,9 @@ double l2_obj(double *x, double **A, double *b, int rows, int cols) {
     free(Ax);
     return obj + LAMBDA_2 / 2 * l2_norm;
 }
-double *l2_grad(double *x, double **A, double *b, int rows, int cols) {
+
+
+/*double *l2_grad(double *x, double **A, double *b, int rows, int cols) {
     double *grad = (double *)malloc(cols * sizeof(double));
     if (grad == NULL) {
         fprintf(stderr, "Memory allocation failed\n");
@@ -40,7 +42,7 @@ double *l2_grad(double *x, double **A, double *b, int rows, int cols) {
     // Compute gradient: grad = A^T * (A*x - b) + lambda_2 * x
     compute_gradient(A, b, x, grad, rows, cols);
     return grad;
-}
+}*/
 
 double* grad(double *x, double* grad, Data data) {
     return compute_gradient(data.A, data.b, x, grad, data.rows, data.cols);
@@ -65,15 +67,16 @@ void prox_objective_grad(double *x, double *v, double lambda, int n, void (*grad
 int main() {
 
     // Example usage of the ISTA and FISTA algorithms
-    int rows = 1000; // Number of rows in A
-    int cols = 100;  // Number of columns in A
+    int rows = 100; // Number of rows in A
+    int cols = 200;  // Number of columns in A
     double **A = (double **)malloc(rows * sizeof(double *));
     for (int i = 0; i < rows; i++) A[i] = (double *)malloc(cols * sizeof(double));
     double *b = (double *)malloc(rows * sizeof(double));
     double *x_ista = (double *)malloc(cols * sizeof(double));
     double *x_fista = (double *)malloc(cols * sizeof(double));
     double *x_lbfgs = (double *)malloc(cols * sizeof(double));
-    if (A == NULL || b == NULL || x_ista == NULL || x_fista == NULL || x_lbfgs == NULL) {
+    double *x_lbfg_fista = (double *)malloc(cols * sizeof(double));
+    if (A == NULL || b == NULL || x_ista == NULL || x_fista == NULL || x_lbfgs == NULL || x_lbfg_fista == NULL) {
         fprintf(stderr, "Memory allocation failed\n");
         return -1;
     }
@@ -85,6 +88,8 @@ int main() {
     data.b = b;
     data.rows = rows;
     data.cols = cols;
+    data.prox_func = l2_func;
+    data.prox_grad = l2_grad;
 
     Problem problem;
     problem.data = data;
@@ -92,10 +97,17 @@ int main() {
     problem.grad_func = grad;
     
     // Initialize x with zeros
-    for (int i = 0; i < cols; i++) x_ista[i] = 0.0;
+    for (int i = 0; i < cols; i++) x_ista[i] = 1.0;
 
     // Initialize x with zeros
-    for (int i = 0; i < cols; i++) x_fista[i] = 0.0;
+    for (int i = 0; i < cols; i++) x_fista[i] = 1.0;
+
+    // Initialize x with zeros
+    for (int i = 0; i < cols; i++) x_lbfgs[i] = 1.0;
+
+    // Initialize x with zeros
+    for (int i = 0; i < cols; i++) x_lbfg_fista[i] = 30.0;
+
     
     // Run ISTA
     x_ista = ista(x_ista, problem);
@@ -105,6 +117,9 @@ int main() {
 
     // Run LBFGS
     x_lbfgs = L_BFGS(x_lbfgs, 5, problem);
+
+    // Run LBFGS with FISTA
+    x_lbfg_fista = LBFGS_fista(x_lbfg_fista, 5, problem);
     
 
     // Print results
@@ -126,6 +141,13 @@ int main() {
     //print vectors
     for (int i = 0; i < cols; i++) {
         printf("%f, ", x_lbfgs[i]);
+    }
+    printf("\n");
+
+    printf("\nLBFGS with Fista\n");
+    //print vectors
+    for (int i = 0; i < cols; i++) {
+        printf("%f, ", x_lbfg_fista[i]);
     }
     printf("\n");
 

@@ -85,7 +85,7 @@ double* fista(double *x, Problem problem) {
         compute_gradient(A, b, y, grad, rows, cols);
 
         // compute new t_k
-        t_k = back_tracking_line_search(A, b, x, grad, rows, cols);
+        t_k = back_tracking_line_search(A, b, y, grad, rows, cols);
 
         //printf("t_k: %f\n", t_k);
 
@@ -276,7 +276,130 @@ double* L_BFGS(double* x, int m, Problem problem) {
     free(s);
     free(y);
 
-    printf("L-BFGS converged at iteration %i with value of f :%f\n", k, problem.objective_func(x, data));
+    static int printed = 0;
+    if (printed == 0) {
+        printf("L-BFGS converged at iteration %i with value of f :%f\n", k, problem.objective_func(x, data));
+        printed = 1;
+    }
+    return x;
+}
 
+//
+double* grad_LS(double *x, double *grad, Data data) {
+    double **A = data.A;
+    double *b = data.b;
+    int rows = data.rows;
+    int cols = data.cols;
+
+    // Compute gradient: grad = A^T * (A*x - b)
+    double *tmp_matrix = (double *)malloc(rows * sizeof(double));
+    if (tmp_matrix == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        return NULL; 
+    }
+    mat_vec_mult(A, x, tmp_matrix, rows, cols);
+
+    for (int i = 0; i < rows; i++) {
+        tmp_matrix[i] -= b[i];  // Compute Ax - b
+    }
+
+    for (int j = 0; j < cols; j++) {
+        grad[j] = 0;
+        // Compute A^T * (Ax - b)
+        for (int i = 0; i < rows; i++) {
+            grad[j] += A[i][j] * tmp_matrix[i];
+        }
+    }
+
+    // Free temporary memory
+    free(tmp_matrix);
+    return grad;
+}
+
+
+double* LBFGS_fista(double *x, int m, Problem problem) {
+    Data data = problem.data;
+    double **A = data.A;
+    double *b = data.b;
+    int rows = data.rows;
+    int cols = data.cols;
+
+    double t_k = 1;
+    double momentum_factor = 1.0;
+    double momentum_factor_new;
+
+    double *grad = (double *)malloc(cols * sizeof(double));
+    double *x_new = (double *)malloc(cols * sizeof(double));
+    double *y = (double *)malloc(cols * sizeof(double));
+    double *u = (double*) malloc(cols * sizeof(double));
+    if (grad == NULL || x_new == NULL || y == NULL) {
+        printf("Error: Memory allocation failed\n");
+        return NULL;
+    }
+    // Initialize y
+    for (int i = 0; i < cols; i++) y[i] = x[i];
+
+    for (int iter = 0; iter < MAX_ITER; iter++) {
+
+        // compute gradient g(y_k) = A^T(Ay_k - b)
+        grad_LS(x, grad, data);
+
+        // compute new t_k
+        t_k = back_tracking_line_search(A, b, x, grad, rows, cols);
+
+        //printf("t_k: %f\n", t_k);
+
+        // x_new = y - t_k * grad g(y_k)
+        for (int i = 0; i < cols; i++)
+            u[i] = y[i] - t_k * grad[i];
+        
+        //compute prox of g
+        Problem sub_prox_problem;
+        sub_prox_problem.data = problem.data;
+        sub_prox_problem.data.x = u;
+        sub_prox_problem.objective_func = prox_function;
+        sub_prox_problem.grad_func = prox_gradient;
+
+        L_BFGS(x_new, m, sub_prox_problem);
+
+        //Update momentum factor
+        momentum_factor_new = (1.0 + sqrt(1.0 + 4.0 * momentum_factor* momentum_factor)) / 2.0;
+        if (momentum_factor_new < 0) {
+            printf("Error: momentum_factor_new < 0\n");
+            free(grad);
+            free(x_new);
+            free(y);
+            return NULL;
+        }
+        
+        // Update y = x_new + ((momentum_factor - 1) / momentum_factor_new) * (x_new - x)
+        for (int i = 0; i < cols; i++) y[i] = x_new[i] + ((momentum_factor - 1) / momentum_factor_new) * (x_new[i] - x[i]);
+        
+        // Check convergence ||grad||_2 <= TOL
+        // printf("Convergence check: %f\n", calculate_norm(grad, cols));
+        if (fabs(f(A, b, x, rows, cols) - f(A, b, x_new, rows, cols)) < TOL) {
+            printf("LBFGS FISTA converged at iteration %d\n", iter);
+            break;
+        }
+        // Update x
+        for (int i = 0; i < cols; i++) x[i] = x_new[i];
+        
+        // Update momentum factor
+        momentum_factor = momentum_factor_new;
+
+        /*if (calculate_norm(grad, cols) < TOL) {
+            printf("FISTA converged at iteration %d\n", iter);
+            break;
+        }*/
+
+        //printf("objective function value: %f\n", f(A, b, x, rows, cols));
+
+    }
+
+    printf("LBFGS FISTA converged at iteration with value of f :%f\n", f(A, b, x, rows, cols));
+    free(grad);
+    free(x_new);
+    free(y);
+    free(u);
     return x;
 }

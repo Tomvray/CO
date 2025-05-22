@@ -14,4 +14,7 @@
     // L-BFGS implementation
     double* L_BFGS(double* x, int m, Problem problem);
 
+    
+    double* LBFGS_fista(double *x, int m, Problem problem);
+
 #endif
