@@ -5,6 +5,7 @@
     #include <stdlib.h>
     #include <math.h>
     #include <string.h>
+    #include <time.h>
     #include "parameters.h"
 
     typedef struct Data Data;

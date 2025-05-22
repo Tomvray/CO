@@ -1,7 +1,7 @@
 #include "algorithms.h"
 
 // ISTA Algorithm
-double* ista(double *x, Problem problem) {
+double* ista(double *x, Problem problem, FILE *file) {
 
     // double t_k = 1.0 / compute_lipschitz(A, rows, cols); // Lipschitz constant
     Data data = problem.data;
@@ -13,7 +13,22 @@ double* ista(double *x, Problem problem) {
     
     double *grad = (double *)malloc(cols * sizeof(double));
     double *x_new = (double *)malloc(cols * sizeof(double));
+    if (grad == NULL || x_new == NULL) {
+        printf("Error: Memory allocation failed\n");
+        return NULL;
+    }
+    // Initialize x_new
+    for (int i = 0; i < cols; i++) x_new[i] = x[i];
+    // Initialize gradient
+    for (int i = 0; i < cols; i++) grad[i] = 0.0;
 
+    // Start the timer
+    clock_t start_time = clock();
+    if (file != NULL) {
+        // Write header to the file
+        fprintf(file, "Iteration,t_k,gradnorm,objective,time\n");
+    }
+    
     for (int iter = 0; iter < MAX_ITER; iter++) {
 
         // compute gradient g(x_k) = A^T(Ax_k - b)
@@ -22,8 +37,6 @@ double* ista(double *x, Problem problem) {
         // compute new t_k
         //t_k = back_tracking_line_search(x, grad, data); 
 
-        //printf("t_k ista: %f gradnorm: %f\n", t_k, calculate_norm(grad, cols));
-
         // x_new = x - t_k * grad g(x_k)
         for (int i = 0; i < cols; i++) {
             x_new[i] = x[i] - t_k * grad[i];
@@ -31,13 +44,15 @@ double* ista(double *x, Problem problem) {
         //shrink (x_k - t_k * grad; LAMBDA_1 * t_k)
         shrink(x_new, LAMBDA_1 * t_k, cols);
 
-        // Check convergence ||grad||_2 <= TOL
-        /*if (calculate_norm(grad, cols) < TOL) {
-            printf("ISTA Converged at iteration %d\n", iter);
-            break;
-        }*/
+        if (file != NULL) {
+            // Write iteration data to the file
+            clock_t current_time = clock();
+            double elapsed_time = (double)(current_time - start_time) / CLOCKS_PER_SEC;
+            fprintf(file, "%d,%f,%f,%f,%f\n", iter, t_k, calculate_norm(grad, cols), f(A, b, x, rows, cols), elapsed_time);
+            fflush(file); // Flush the file buffer to ensure data is written immediately
+        }
 
-        // Check convergence f(x_k) - f(x_new) < TOL
+        // Check convergence |f(x_k) - f(x_new)| < TOL
         if (fabs(f(A, b, x, rows, cols) - f(A, b, x_new, rows, cols)) < TOL) {
             printf("ISTA converged at iteration %d\n", iter);
             break;
@@ -47,8 +62,6 @@ double* ista(double *x, Problem problem) {
         for (int i = 0; i < cols; i++) {
             x[i] = x_new[i];
         }
-
-        //printf("objective function value: %f\n", f(A, b, x, rows, cols));
     }
 
     printf("ISTA converged at iteration with value of f : %f\n", f(A, b, x, rows, cols));
@@ -59,7 +72,7 @@ double* ista(double *x, Problem problem) {
 }
 
 // FISTA Algorithm
-double* fista(double *x, Problem problem) {
+double* fista(double *x, Problem problem, FILE *file) {
     Data data = problem.data;
     double **A = data.A;
     double *b = data.b;
@@ -80,6 +93,19 @@ double* fista(double *x, Problem problem) {
     // Initialize y
     for (int i = 0; i < cols; i++) y[i] = x[i];
 
+    // Initialize gradient
+    for (int i = 0; i < cols; i++) grad[i] = 0.0;
+
+    // Initialize x_new
+    for (int i = 0; i < cols; i++) x_new[i] = x[i];
+
+    // Start the timer
+    clock_t start_time = clock();
+    if (file != NULL) {
+        // Write header to the file
+        fprintf(file, "Iteration,t_k,gradnorm,objective,time\n");
+    }
+
     for (int iter = 0; iter < MAX_ITER; iter++) {
 
         // compute gradient g(y_k) = A^T(Ay_k - b)
@@ -87,10 +113,6 @@ double* fista(double *x, Problem problem) {
 
         // compute new t_k
         // t_k = back_tracking_line_search(x, grad, data);
-        
-        // printf("t_k fista: %f gradnorm: %f\n", t_k, calculate_norm(grad, cols));
-
-        //printf("t_k: %f\n", t_k);
 
         // x_new = y - t_k * grad g(y_k)
         for (int i = 0; i < cols; i++)
@@ -112,10 +134,18 @@ double* fista(double *x, Problem problem) {
         // Update y = x_new + ((momentum_factor - 1) / momentum_factor_new) * (x_new - x)
         for (int i = 0; i < cols; i++) y[i] = x_new[i] + ((momentum_factor - 1) / momentum_factor_new) * (x_new[i] - x[i]);
         
-        // Check convergence ||grad||_2 <= TOL
-        // printf("Convergence check: %f\n", calculate_norm(grad, cols));
+        if (file != NULL) {
+            // Write iteration data to the file
+            clock_t current_time = clock();
+            double elapsed_time = (double)(current_time - start_time) / CLOCKS_PER_SEC;
+            fprintf(file, "%d,%f,%f,%f,%f\n", iter, t_k, calculate_norm(grad, cols), f(A, b, x, rows, cols), elapsed_time);
+            fflush(file); // Flush the file buffer to ensure data is written immediately
+        }
+
+        // Check convergence | f(x_k) - f(x_new)| < TOL
         if (fabs(f(A, b, x, rows, cols) - f(A, b, x_new, rows, cols)) < TOL) {
             printf("FISTA converged at iteration %d\n", iter);
+            for (int i = 0; i < cols; i++) x[i] = x_new[i];
             break;
         }
         // Update x
@@ -123,14 +153,6 @@ double* fista(double *x, Problem problem) {
         
         // Update momentum factor
         momentum_factor = momentum_factor_new;
-
-        /*if (calculate_norm(grad, cols) < TOL) {
-            printf("FISTA converged at iteration %d\n", iter);
-            break;
-        }*/
-
-        //printf("objective function value: %f\n", f(A, b, x, rows, cols));
-
     }
 
     printf("FISTA converged at iteration with value of f :%f\n", f(A, b, x, rows, cols));
@@ -167,7 +189,7 @@ double* fista(double *x, Problem problem) {
    
 static int printed = 0;
 // L-BFGS implementation
-double* L_BFGS(double* x, int m, Problem problem) {
+double* L_BFGS(double* x, int m, Problem problem, FILE *file) {
     Data data = problem.data;
     int dimensions = data.cols;
     double t[m], rho[m];
@@ -194,13 +216,17 @@ double* L_BFGS(double* x, int m, Problem problem) {
     }
     int k = 0;
 
-    //while (k < MAX_ITER && sqrt(dot_product(grad_old, grad_old, dimensions)) > TOL) {
+    // Start the timer
+    clock_t start_time = clock();
+    if (file != NULL) {
+        // Write header to the file
+        fprintf(file, "Iteration,t_k,gradnorm,objective,time\n");
+    }
+
     while (k < MAX_ITER ) {
         
         // q <- grad(f(x_k))
         memcpy(q, grad_old, dimensions * sizeof(double));
-
-        //printf("L-BFGS iteration %d, objective function value: %f\n", k, problem.objective_func(x, data));
 
         int upper_bound = (k < m) ? k : m;
         // t_i <- rho_i * s_i^T q
@@ -271,6 +297,15 @@ double* L_BFGS(double* x, int m, Problem problem) {
 
         k++;
 
+        if (file != NULL) {
+            // Write iteration data to the file
+            clock_t current_time = clock();
+            double elapsed_time = (double)(current_time - start_time) / CLOCKS_PER_SEC;
+            fprintf(file, "%d,%f,%f,%f,%f\n", k, 0.0, calculate_norm(grad_old, dimensions), problem.objective_func(x, data), elapsed_time);
+            fflush(file); // Flush the file buffer to ensure data is written immediately
+        }
+
+        // Check convergence |f(x_k) - f(x_new)| < TOL
         if (fabs(problem.objective_func(x, data) - problem.objective_func(x_old, data)) < TOL) {
             if (printed == 0) {
                 printf("L-BFGS converged at iteration %i with value of f :%f\n", k, problem.objective_func(x, data));
@@ -298,7 +333,6 @@ double* L_BFGS(double* x, int m, Problem problem) {
     return x;
 }
 
-//
 double* grad_LS(double *x, double *grad, Data data) {
     double **A = data.A;
     double *b = data.b;
@@ -331,7 +365,7 @@ double* grad_LS(double *x, double *grad, Data data) {
 }
 
 
-double* LBFGS_fista(double *x, int m, Problem problem) {
+double* LBFGS_fista(double *x, int m, Problem problem, FILE *file) {
     Data data = problem.data;
     double **A = data.A;
     double *b = data.b;
@@ -346,13 +380,26 @@ double* LBFGS_fista(double *x, int m, Problem problem) {
     double *x_new = (double *)malloc(cols * sizeof(double));
     double *y = (double *)malloc(cols * sizeof(double));
     double *u = (double*) malloc(cols * sizeof(double));
-    if (grad == NULL || x_new == NULL || y == NULL) {
+    if (grad == NULL || x_new == NULL || y == NULL || u == NULL) {
         printf("Error: Memory allocation failed\n");
         return NULL;
     }
     // Initialize y
     for (int i = 0; i < cols; i++) y[i] = x[i];
 
+    // Initialize gradient
+    for (int i = 0; i < cols; i++) grad[i] = 0.0;
+
+    // Initialize x_new
+    for (int i = 0; i < cols; i++) x_new[i] = x[i];
+
+    // Start the timer
+    clock_t start_time = clock();
+    if (file != NULL) {
+        // Write header to the file
+        fprintf(file, "Iteration,t_k,gradnorm,objective,time\n");
+    }
+    
     for (int iter = 0; iter < MAX_ITER; iter++) {
 
         // compute gradient g(y_k) = A^T(Ay_k - b)
@@ -360,8 +407,6 @@ double* LBFGS_fista(double *x, int m, Problem problem) {
 
         // compute new t_k
         //t_k = back_tracking_line_search(x, grad, data);
-
-        //printf("t_k: %f\n", t_k);
 
         // x_new = y - t_k * grad g(y_k)
         for (int i = 0; i < cols; i++){
@@ -376,7 +421,7 @@ double* LBFGS_fista(double *x, int m, Problem problem) {
         sub_prox_problem.objective_func = prox_function;
         sub_prox_problem.grad_func = prox_gradient;
 
-        L_BFGS(x_new, m, sub_prox_problem);
+        L_BFGS(x_new, m, sub_prox_problem, NULL);
 
         //Update momentum factor
         momentum_factor_new = (1.0 + sqrt(1.0 + 4.0 * momentum_factor* momentum_factor)) / 2.0;
@@ -391,8 +436,15 @@ double* LBFGS_fista(double *x, int m, Problem problem) {
         // Update y = x_new + ((momentum_factor - 1) / momentum_factor_new) * (x_new - x)
         for (int i = 0; i < cols; i++) y[i] = x_new[i] + ((momentum_factor - 1) / momentum_factor_new) * (x_new[i] - x[i]);
         
-        // Check convergence ||grad||_2 <= TOL
-        // printf("Convergence check: %f\n", calculate_norm(grad, cols));
+        if (file != NULL) {
+            // Write iteration data to the file
+            clock_t current_time = clock();
+            double elapsed_time = (double)(current_time - start_time) / CLOCKS_PER_SEC;
+            fprintf(file, "%d,%f,%f,%f,%f\n", iter, t_k, calculate_norm(grad, cols), f(A, b, x, rows, cols), elapsed_time);
+            fflush(file); // Flush the file buffer to ensure data is written immediately
+        }
+
+        // Check convergence | f(x_k) - f(x_new)| < TOL
         if (fabs(f(A, b, x, rows, cols) - f(A, b, x_new, rows, cols)) < TOL) {
             printf("LBFGS FISTA converged at iteration %d\n", iter);
             break;
@@ -402,14 +454,6 @@ double* LBFGS_fista(double *x, int m, Problem problem) {
         
         // Update momentum factor
         momentum_factor = momentum_factor_new;
-
-        /*if (calculate_norm(grad, cols) < TOL) {
-            printf("FISTA converged at iteration %d\n", iter);
-            break;
-        }*/
-
-        //printf("objective function value: %f\n", f(A, b, x, rows, cols));
-
     }
 
     printf("LBFGS FISTA converged at iteration with value of f :%f\n", f(A, b, x, rows, cols));

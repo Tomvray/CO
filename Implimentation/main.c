@@ -67,8 +67,8 @@ void prox_objective_grad(double *x, double *v, double lambda, int n, void (*grad
 int main() {
 
     // Example usage of the ISTA and FISTA algorithms
-    int rows = 100; // Number of rows in A
-    int cols = 100;  // Number of columns in A
+    int rows = 1000; // Number of rows in A
+    int cols = 1000;  // Number of columns in A
     double **A = (double **)malloc(rows * sizeof(double *));
     for (int i = 0; i < rows; i++) A[i] = (double *)malloc(cols * sizeof(double));
     double *b = (double *)malloc(rows * sizeof(double));
@@ -112,16 +112,40 @@ int main() {
 
     
     // Run ISTA
-    x_ista = ista(x_ista, problem);
+    FILE *ista_file = fopen("results/ista.csv", "w");
+    if (ista_file == NULL) {
+        fprintf(stderr, "Error opening file for writing\n");
+        return -1;
+    }
+    x_ista = ista(x_ista, problem, ista_file);
+    fclose(ista_file);
     
+    FILE *fista_file = fopen("results/fista.csv", "w");
+    if (fista_file == NULL) {
+        fprintf(stderr, "Error opening file for writing\n");
+        return -1;
+    }
     // Run FISTA
-    x_fista = fista(x_fista, problem);
+    x_fista = fista(x_fista, problem, fista_file);
+    fclose(fista_file);
 
+    FILE *lbfgs_file = fopen("results/lbfgs.csv", "w");
+    if (lbfgs_file == NULL) {
+        fprintf(stderr, "Error opening file for writing\n");
+        return -1;
+    }
     // Run LBFGS
-    x_lbfgs = L_BFGS(x_lbfgs, 5, problem);
+    x_lbfgs = L_BFGS(x_lbfgs, 5, problem, lbfgs_file);
+    fclose(lbfgs_file);
 
+    FILE *lbfgs_fista_file = fopen("results/lbfgs_fista.csv", "w");
+    if (lbfgs_fista_file == NULL) {
+        fprintf(stderr, "Error opening file for writing\n");
+        return -1;
+    }
     // Run LBFGS with FISTA
-    x_lbfg_fista = LBFGS_fista(x_lbfg_fista, 5, problem);
+    x_lbfg_fista = LBFGS_fista(x_lbfg_fista, 5, problem, lbfgs_fista_file);
+    fclose(lbfgs_fista_file);
     
 
     // Print results

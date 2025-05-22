@@ -2,12 +2,12 @@
    #define PARAMETERS_H
 
     // Parameters for LASSO OR Elastic Net
-    #define LAMBDA_1 1
-    #define LAMBDA_2 0.1
+    #define LAMBDA_1 0
+    #define LAMBDA_2 0.7
     
     // Parameters for the simulation
-    #define MAX_ITER 1e3
-    #define TOL 1e-4
+    #define MAX_ITER 1e4
+    #define TOL 1e-8
     #define T_0 1.0
 
     // Parameters for armijo condition
