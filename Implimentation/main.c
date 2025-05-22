@@ -68,7 +68,7 @@ int main() {
 
     // Example usage of the ISTA and FISTA algorithms
     int rows = 100; // Number of rows in A
-    int cols = 200;  // Number of columns in A
+    int cols = 100;  // Number of columns in A
     double **A = (double **)malloc(rows * sizeof(double *));
     for (int i = 0; i < rows; i++) A[i] = (double *)malloc(cols * sizeof(double));
     double *b = (double *)malloc(rows * sizeof(double));
@@ -123,33 +123,33 @@ int main() {
     
 
     // Print results
-    printf("ista\n");
+    //printf("ista\n");
     //print vectors
-    for (int i = 0; i < cols; i++) {
-        printf("%f,", x_ista[i]);
-    }
-    printf("\n");
+    //for (int i = 0; i < cols; i++) {
+    //    printf("%f,", x_ista[i]);
+    //}
+    //printf("\n");
 
-    printf("\nFista\n");
+    //printf("\nFista\n");
     //print vectors
-    for (int i = 0; i < cols; i++) {
-        printf("%f, ", x_fista[i]);
-    }
-    printf("\n");
+    //for (int i = 0; i < cols; i++) {
+    //    printf("%f, ", x_fista[i]);
+   // }
+    //printf("\n");
 
-    printf("\nLBFGS\n");
+    //printf("\nLBFGS\n");
     //print vectors
-    for (int i = 0; i < cols; i++) {
-        printf("%f, ", x_lbfgs[i]);
-    }
-    printf("\n");
+    //for (int i = 0; i < cols; i++) {
+    //    printf("%f, ", x_lbfgs[i]);
+   // }
+    //printf("\n");
 
-    printf("\nLBFGS with Fista\n");
+    //printf("\nLBFGS with Fista\n");
     //print vectors
-    for (int i = 0; i < cols; i++) {
-        printf("%f, ", x_lbfg_fista[i]);
-    }
-    printf("\n");
+    //for (int i = 0; i < cols; i++) {
+    //    printf("%f, ", x_lbfg_fista[i]);
+   // }
+    //printf("\n");
 
     // Free allocated memory
     for (int i = 0; i < rows; i++) free(A[i]);

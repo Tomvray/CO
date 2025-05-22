@@ -86,6 +86,7 @@ double* fista(double *x, Problem problem) {
 
         // compute new t_k
         t_k = back_tracking_line_search(A, b, y, grad, rows, cols);
+        printf("t_k fista: %f gradnorm: %f\n", t_k, calculate_norm(grad, cols));
 
         //printf("t_k: %f\n", t_k);
 
@@ -350,8 +351,10 @@ double* LBFGS_fista(double *x, int m, Problem problem) {
         //printf("t_k: %f\n", t_k);
 
         // x_new = y - t_k * grad g(y_k)
-        for (int i = 0; i < cols; i++)
+        for (int i = 0; i < cols; i++){
             u[i] = y[i] - t_k * grad[i];
+            //x_new[i] = u[i];
+        }
         
         //compute prox of g
         Problem sub_prox_problem;

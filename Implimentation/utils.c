@@ -72,6 +72,7 @@ double calculate_norm(double *x, int n) {
     for (int i = 0; i < n; i++) {
         norm += x[i] * x[i];
     }
+    // return norm;
     return sqrt(norm);
 }
 
@@ -166,7 +167,8 @@ double back_tracking_line_search(double **A, double *b, double *x, double *grad,
         for (int i = 0; i < cols; i++) {           
             x_new[i] = x[i] - t * grad[i];
         }
-        // shrink(x_new, LAMBDA_1 * t, cols);
+        
+        shrink(x_new, LAMBDA_1 * t, cols);
 
         // printf("iter: %i, t: %f\n", iter, t);
         // Compute the new function value
@@ -176,9 +178,6 @@ double back_tracking_line_search(double **A, double *b, double *x, double *grad,
             printf("x_new: %f, %f, %f, %f\n", x_new[0], x_new[1], x_new[2], x_new[3]);
             printf("fx : %f, f_new :  %f,  t: %f\n", f_x, f_new,  t);
         }
-            
-
-
         
         // Check the Armijo condition
         double armijo_condition = f_x - f_new;
@@ -193,9 +192,9 @@ double back_tracking_line_search(double **A, double *b, double *x, double *grad,
         }
         
         // if not, reduce the step size
-        t *= ALPHA;
-        if (iter < 0)
-            printf("t_k: %f, f_new: %f, iter: %i, armijo_condition: %f\n", t, f_new, iter, armijo_condition);
+        t  = t * ALPHA;
+        // if (iter < 1)
+            // printf("t_k: %f, f_new: %f, iter: %i, armijo_condition: %f, grad_dot: %f\n", t, f_new, iter, armijo_condition, grad);
         // Free the temporary x_new
         iter++;
     }
