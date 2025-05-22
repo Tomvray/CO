@@ -6,9 +6,12 @@
     // Function prototypes
 
     // Iterative Shrinkage-Thresholding Algorithm (ISTA)
-    double* ista( double *x, double **A, double *b, int rows, int cols);
+    double* ista(double *x, Problem problem);
 
     // Fast Iterative Shrinkage-Thresholding Algorithm (FISTA)
-    double* fista(double *x, double **A, double *b, int rows, int cols);
+    double* fista(double *x, Problem problem);
+
+    // L-BFGS implementation
+    double* L_BFGS(double* x, int m, Problem problem);
 
 #endif

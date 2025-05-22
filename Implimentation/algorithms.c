@@ -1,10 +1,15 @@
 #include "algorithms.h"
 
 // ISTA Algorithm
-double* ista(double *x, double **A, double *b, int rows, int cols) {
+double* ista(double *x, Problem problem) {
 
     // double t_k = 1.0 / compute_lipschitz(A, rows, cols); // Lipschitz constant
     double t_k = T_0;
+    int cols = problem.data.cols;
+    int rows = problem.data.rows;
+    double **A = problem.data.A;
+    double *b = problem.data.b;
+    
     double *grad = (double *)malloc(cols * sizeof(double));
     double *x_new = (double *)malloc(cols * sizeof(double));
 
@@ -53,7 +58,13 @@ double* ista(double *x, double **A, double *b, int rows, int cols) {
 }
 
 // FISTA Algorithm
-double* fista(double *x, double **A, double *b, int rows, int cols){
+double* fista(double *x, Problem problem) {
+    Data data = problem.data;
+    double **A = data.A;
+    double *b = data.b;
+    int rows = data.rows;
+    int cols = data.cols;
+
     double t_k = 1;
     double momentum_factor = 1.0;
     double momentum_factor_new;
@@ -129,21 +140,8 @@ double* fista(double *x, double **A, double *b, int rows, int cols){
 //typedef double (*objective_func)(double **A, double *b, double *x, int rows, int cols);
 //Compute the proximal gradiant using L-BFGS
 
-
-
-
-// Example gradient of the proximal objective: grad = x - v + lambda * grad_g(x)
-void prox_objective_grad(double *x, double *v, double lambda, int n, void (*grad_g)(double*, double*, int), double *grad) {
-    double *grad_gx = (double*)malloc(n * sizeof(double));
-    grad_g(x, grad_gx, n); // User-supplied gradient of g at x
-    for (int i = 0; i < n; i++) {
-        grad[i] = x[i] - v[i] + lambda * grad_gx[i];
-    }
-    free(grad_gx);
-}
-
 // Proximal operator using BFGS (simplified, not full BFGS implementation)
-double* prox_bfgs(double *v, double lambda, int n, void (*grad_g)(double*, double*, int), int max_iter, double tol) {
+/*double* prox_bfgs(double *v, double lambda, int n, void (*grad_g)(double*, double*, int), int max_iter, double tol) {
     double *x = (double*)malloc(n * sizeof(double));
     double *grad = (double*)malloc(n * sizeof(double));
     for (int i = 0; i < n; i++) x[i] = v[i]; // Initialize x = v
@@ -162,37 +160,19 @@ double* prox_bfgs(double *v, double lambda, int n, void (*grad_g)(double*, doubl
     }
     free(grad);
     return x;
-}
-
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
-#include <string.h>
-
-// Function prototypes
-typedef double (*objective_func)(double*);
-typedef void (*grad_func)(double*, double*);
-
-// Dot product function
-double dot_product(double* v1, double* v2, int n) {
-    double result = 0.0;
-    for (int i = 0; i < n; i++) {
-        result += v1[i] * v2[i];
-    }
-    return result;
-}
-
-// Copy vector function
-void copy_vector(double* dest, double* src, int n) {
-    memcpy(dest, src, n * sizeof(double));
-}
+}*/
 
 // L-BFGS implementation
-double* L_BFGS(double* x, int dimensions, int m, objective_func obj, grad_func grad, int max_iter, double tol) {
-    double alpha[m], rho[m];
+double* L_BFGS(double* x, int m, Problem problem) {
+    Data data = problem.data;
+    int dimensions = data.cols;
+    double t[m], rho[m];
     double *q = malloc(dimensions * sizeof(double));
     double *grad_new = malloc(dimensions * sizeof(double));
-    double *s[m], *y[m];
+    double **s, **y;
+
+    s = malloc(m * sizeof(double*));
+    y = malloc(m * sizeof(double*));
 
     for (int i = 0; i < m; i++) {
         s[i] = malloc(dimensions * sizeof(double));
@@ -202,41 +182,63 @@ double* L_BFGS(double* x, int dimensions, int m, objective_func obj, grad_func g
     double *grad_old = malloc(dimensions * sizeof(double));
     double *x_old = malloc(dimensions * sizeof(double));
 
-    grad(x, grad_old);
+    problem.grad_func(x, grad_old, data);
+    if (grad_old == NULL) {
+        printf("Error: Memory allocation failed\n");
+        return NULL;
+    }
     int k = 0;
 
-    while (k < max_iter && sqrt(dot_product(grad_old, grad_old, dimensions)) > tol) {
-        copy_vector(q, grad_old, dimensions);
+    while (k < MAX_ITER && sqrt(dot_product(grad_old, grad_old, dimensions)) > TOL) {
+        // q <- grad(f(x_k))
+        memcpy(q, grad_old, dimensions * sizeof(double));
+
+        //printf("L-BFGS iteration %d, objective function value: %f\n", k, problem.objective_func(x, data));
 
         int upper_bound = (k < m) ? k : m;
+        // t_i <- rho_i * s_i^T q
+        // q <- q - t_i * y_i
         for (int i = upper_bound - 1; i >= 0; i--) {
             rho[i] = 1.0 / dot_product(y[i], s[i], dimensions);
-            alpha[i] = rho[i] * dot_product(s[i], q, dimensions);
+            t[i] = rho[i] * dot_product(s[i], q, dimensions);
             for (int j = 0; j < dimensions; j++)
-                q[j] -= alpha[i] * y[i][j];
+                q[j] -= t[i] * y[i][j];
         }
 
         double gamma = 1.0;
+        // lambda <- s_{m-1}^T y_{m-1} / y_{m-1}^T y_{m-1}
+        // B_k^0 = gamma * I
         if (k > 0) {
             gamma = dot_product(s[upper_bound - 1], y[upper_bound - 1], dimensions) /
                     dot_product(y[upper_bound - 1], y[upper_bound - 1], dimensions);
         }
 
+
+        // q <- gamma * q (where q stores r)
         for (int i = 0; i < dimensions; i++)
             q[i] *= gamma;
 
+        // b <- rho_i * y_i^T q
+        // q <- q + s_i * (t_i - b)
         for (int i = 0; i < upper_bound; i++) {
-            double beta = rho[i] * dot_product(y[i], q, dimensions);
+            double b = rho[i] * dot_product(y[i], q, dimensions);
             for (int j = 0; j < dimensions; j++)
-                q[j] += s[i][j] * (alpha[i] - beta);
+                q[j] += s[i][j] * (t[i] - b);
         }
+
 
         for (int i = 0; i < dimensions; i++) {
             x_old[i] = x[i];
             x[i] -= q[i];
         }
 
-        grad(x, grad_new);
+
+        problem.grad_func(x, grad_new, data);
+        if (grad_new == NULL) {
+            printf("Error: Memory allocation failed\n");
+            return NULL;
+        }
+
 
         if (k >= m) {
             free(s[0]);
@@ -245,14 +247,20 @@ double* L_BFGS(double* x, int dimensions, int m, objective_func obj, grad_func g
             memmove(y, y+1, (m-1)*sizeof(double*));
             s[m-1] = malloc(dimensions * sizeof(double));
             y[m-1] = malloc(dimensions * sizeof(double));
+            for (int i = 0; i < dimensions; i++) {
+                s[m-1][i] = x[i] - x_old[i];
+                y[m-1][i] = grad_new[i] - grad_old[i];
+            }
+        }
+        else{
+            for (int i = 0; i < dimensions; i++) {
+                s[k][i] = x[i] - x_old[i];
+                y[k][i] = grad_new[i] - grad_old[i];
+            }
         }
 
-        for (int i = 0; i < dimensions; i++) {
-            s[upper_bound - 1][i] = x[i] - x_old[i];
-            y[upper_bound - 1][i] = grad_new[i] - grad_old[i];
-        }
 
-        copy_vector(grad_old, grad_new, dimensions);
+        memcpy(grad_old, grad_new, dimensions * sizeof(double));
 
         k++;
     }
@@ -265,6 +273,10 @@ double* L_BFGS(double* x, int dimensions, int m, objective_func obj, grad_func g
         free(s[i]);
         free(y[i]);
     }
+    free(s);
+    free(y);
+
+    printf("L-BFGS converged at iteration %i with value of f :%f\n", k, problem.objective_func(x, data));
 
     return x;
 }

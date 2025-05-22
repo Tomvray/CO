@@ -30,18 +30,13 @@ double calculate_norm(double *x, int n) {
     return sqrt(norm);
 }
 
-// Compute the direction of the grad (d_k)
-void calculate_direction(double* grad, double* d_k ,int cols){
-    for (int i = 0; i < cols; i++) {
-        if (grad[i] > 0) {
-            d_k[i] = -1;
-        } else if (grad[i] < 0) {
-            d_k[i] = 1;
-        } else {
-            d_k[i] = 0;
-        }
+// Dot product function
+double dot_product(double* v1, double* v2, int n) {
+    double result = 0.0;
+    for (int i = 0; i < n; i++) {
+        result += v1[i] * v2[i];
     }
-    return;
+    return result;
 }
 
 // Compute the objective function value: f(x) = ||Ax - b||^2 + lambda_1 * ||x||_1 + lambda_2/2 * ||x||^2

@@ -4,9 +4,25 @@
     #include <stdio.h>
     #include <stdlib.h>
     #include <math.h>
+    #include <string.h>
     #include "parameters.h"
 
-    // Functions
+    // Function prototypes
+    typedef struct Data {
+        double **A;
+        double *b;
+        int rows;
+        int cols;
+    }   Data;
+
+    typedef double (*objective_func)(double*, Data);
+    typedef double* (*grad_func)(double*, double*, Data);
+
+    typedef struct Problem {
+        Data data;
+        objective_func objective_func;
+        grad_func grad_func;
+    }   Problem;
 
     // Soft-thresholding (shrinkage) operator (shrink(y, lambda * t))
     void shrink(double *y, double lambda_t, int n);
@@ -16,6 +32,9 @@
 
     //Compute norm of a vector
     double calculate_norm(double *x, int n);
+
+    // Dot product function
+    double dot_product(double* v1, double* v2, int n);
 
     // Compute the objective function value: f(x) = ||Ax - b||^2 + lambda_1 * ||x||_1 + lambda_2/2 * ||x||^2
     double f(double **A, double *b, double *x, int rows, int cols);
