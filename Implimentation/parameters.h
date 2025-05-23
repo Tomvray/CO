@@ -3,11 +3,11 @@
 
     // Parameters for LASSO OR Elastic Net
     #define LAMBDA_1 0
-    #define LAMBDA_2 0
+    #define LAMBDA_2 0.1
     
     
     // Parameters for the simulation
-    #define MAX_ITER 1e5
+    #define MAX_ITER 1e4
     #define TOL 1e-8
     #define T_0 1.0
 

@@ -312,15 +312,6 @@ int main(int argc, char **argv)
     free(lbfgs_file_name);
     free(lbfgs_fista_file_name);
 
-    if (!ista_file || !fista_file || !lbfgs_file || !lbfgs_fista_file) {
-        perror("fopen results");
-        return -1;
-    }
-    if (!ista_file || !fista_file || !lbfgs_file || !lbfgs_fista_file) {
-        perror("fopen results");
-        return -1;
-    }
-
     x_ista       = ista(x_ista, problem, ista_file);
     x_fista      = fista(x_fista, problem, fista_file);
     if (LAMBDA_1 == 0) x_lbfgs      = L_BFGS(x_lbfgs, 5, problem, lbfgs_file);
@@ -328,7 +319,7 @@ int main(int argc, char **argv)
 
     fclose(ista_file);
     fclose(fista_file);
-    fclose(lbfgs_file);
+    if (LAMBDA_1 == 0) fclose(lbfgs_file);
     fclose(lbfgs_fista_file);
 
     /* --------------------------- clean‑up --------------------------- */
