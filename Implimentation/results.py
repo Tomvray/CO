@@ -28,12 +28,9 @@ import matplotlib.pyplot as plt
 RESULTS_DIR = Path("results")
 PLOTS_DIR   = Path("plots")
 
-#DATASETS    = ["boston", "Advertising", "winequality-red"]
-DATASETS    = ["winequality-red"]
-#L1_L2_PAIRS = ["0.0_0.0", "0.0_0.1"]
-L1_L2_PAIRS = ["0.0_0.0"]
+DATASETS    = ["boston", "winequality-red", "gt_2014", "random"]
+L1_L2_PAIRS = ["0.0_0.0", "0.0_0.1", "0.1_0.0", "0.1_0.1"]
 ALGOS       = ["ista", "fista", "lbfgs", "lbfgs_fista"]
-#ALGOS = ["lbfgs"]
 # suppress the Matplotlib <3.11 boxplot-labels warning
 warnings.filterwarnings(
     "ignore",
@@ -75,7 +72,8 @@ def save_objective_vs_iter(df: pd.DataFrame, out: Path, title: str):
     #plt.yscale("log")
     plt.xlabel("Iteration")
     plt.ylabel("objective f(x)")
-    plt.ylim(0, df["objective"].min() * 3)
+    #plt.ylim(df["objective"].min(), df["objective"].min() * 8)
+    plt.yscale("log")
     ista_iter = df[df["algo"] == "ista"]["Iteration"].max()
     plt.xlim(0, ista_iter / 5)
     plt.title(title + "  –  objective vs iteration")
@@ -121,9 +119,9 @@ def save_iter_time_box(df: pd.DataFrame, out: Path, title: str):
     # red ♦ at max, annotate mean
     for i, (mx, av) in enumerate(zip(max_v, mean_v), start=1):
         plt.plot(i, mx, marker="D", color="red")
-        plt.text(i, av, f"{av:.4f}s",
+        plt.text(i, av, f"{av:.4f}ms",
                  ha="center", va="bottom", fontsize=8)
-    plt.ylabel("time per iteration (s)")
+    plt.ylabel("time per iteration (ms)")
     plt.title(title + "  –  per-iteration time")
     plt.tight_layout()
     plt.savefig(out, dpi=300)
@@ -132,7 +130,7 @@ def save_iter_time_box(df: pd.DataFrame, out: Path, title: str):
 
 def save_totals(df: pd.DataFrame, out: Path):
     totals = df.groupby("algo")["time"].max().sort_values()
-    lines = [f"{a:15s} {t:.6f} s" for a, t in totals.items()]
+    lines = [f"{a:15s} {t:.6f} ms" for a, t in totals.items()]
     out.write_text("\n".join(lines))
 
 
@@ -151,6 +149,8 @@ for dataset in DATASETS:
                 continue
             if (df := load_one_csv(csv_path, algo)) is not None:
                 df["objective"] = pd.to_numeric(df["objective"], errors="coerce")
+                #remove first 10 iterations
+                df = df.iloc[10:]
                 group_frames.append(df)
 
         if not group_frames:

@@ -1,4 +1,4 @@
-lbfgs           119534.000000 s
-fista           1036450.000000 s
-lbfgs_fista     3758105.000000 s
-ista            5138787.000000 s
+lbfgs           120960.000000 ms
+fista           508071.000000 ms
+lbfgs_fista     522611.000000 ms
+ista            541748.000000 ms

@@ -1,0 +1,3 @@
+lbfgs_fista     324557.000000 ms
+fista           454666.000000 ms
+ista            469768.000000 ms
