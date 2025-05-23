@@ -28,11 +28,12 @@ import matplotlib.pyplot as plt
 RESULTS_DIR = Path("results")
 PLOTS_DIR   = Path("plots")
 
-DATASETS    = ["boston", "Advertising", "winequality-red"]
-#DATASETS    = ["boston"]
-L1_L2_PAIRS = ["0.0_0.0", "0.0_0.1"]
-#ALGOS       = ["ista", "fista", "lbfgs", "lbfgs_fista"]
-ALGOS = ["lbfgs"]
+#DATASETS    = ["boston", "Advertising", "winequality-red"]
+DATASETS    = ["winequality-red"]
+#L1_L2_PAIRS = ["0.0_0.0", "0.0_0.1"]
+L1_L2_PAIRS = ["0.0_0.0"]
+ALGOS       = ["ista", "fista", "lbfgs", "lbfgs_fista"]
+#ALGOS = ["lbfgs"]
 # suppress the Matplotlib <3.11 boxplot-labels warning
 warnings.filterwarnings(
     "ignore",
@@ -66,17 +67,17 @@ def load_one_csv(path: Path, algo: str) -> pd.DataFrame | None:
 
 def save_objective_vs_iter(df: pd.DataFrame, out: Path, title: str):
     plt.figure()
-    #remove first iteration
-    # df = df[df["Iteration"] > 10]
-    # array of number of rows in df
-    x_axis = np.arange(df.shape[0])
-    print(df.shape)
     for algo, grp in df.groupby("algo"):
-        # print only points
-        plt.plot(grp["Iteration"], grp["objective"], label=algo, 'ro')
-    plt.yscale("log")
+        plt.plot(grp["Iteration"], grp["objective"], label=algo, linewidth = 1.5)
+
+    #average = df["fista"]["objective"].mean()
+
+    #plt.yscale("log")
     plt.xlabel("Iteration")
     plt.ylabel("objective f(x)")
+    plt.ylim(0, df["objective"].min() * 3)
+    ista_iter = df[df["algo"] == "ista"]["Iteration"].max()
+    plt.xlim(0, ista_iter / 5)
     plt.title(title + "  –  objective vs iteration")
     plt.legend()
     plt.tight_layout()
@@ -141,7 +142,7 @@ for dataset in DATASETS:
         out_dir = PLOTS_DIR / dataset / lam
         out_dir.mkdir(parents=True, exist_ok=True)
 
-        # gather CSVs for this dataset & λ-pair
+        #gather CSVs for this dataset & λ-pair
         group_frames = []
         for algo in ALGOS:
             csv_path = RESULTS_DIR / f"{algo}_{dataset}_{lam}.csv"
@@ -149,6 +150,7 @@ for dataset in DATASETS:
                 print(f"⚠️  missing file {csv_path.name}")
                 continue
             if (df := load_one_csv(csv_path, algo)) is not None:
+                df["objective"] = pd.to_numeric(df["objective"], errors="coerce")
                 group_frames.append(df)
 
         if not group_frames:
@@ -161,6 +163,7 @@ for dataset in DATASETS:
         save_objective_vs_iter(data, out_dir / "objective_vs_iter.png", title_stub)
         save_objective_vs_time(data, out_dir / "objective_vs_time.png", title_stub)
         save_iter_time_box(data, out_dir / "iter_time_boxplot.png", title_stub)
-        #save_totals(data, out_dir / "totals.txt")
+        save_totals(data, out_dir / "totals.txt")
+
 
 print("✓ all plots written to", PLOTS_DIR.resolve())
