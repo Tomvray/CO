@@ -2,7 +2,7 @@
    #define PARAMETERS_H
 
     // Parameters for LASSO OR Elastic Net
-    #define LAMBDA_1 0.2
+    #define LAMBDA_1 0
     #define LAMBDA_2 0
     
     
