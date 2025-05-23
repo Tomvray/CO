@@ -323,8 +323,8 @@ int main(int argc, char **argv)
 
     x_ista       = ista(x_ista, problem, ista_file);
     x_fista      = fista(x_fista, problem, fista_file);
-    x_lbfg_fista = LBFGS_fista(x_lbfg_fista, 5, problem, lbfgs_fista_file);
     if (LAMBDA_1 == 0) x_lbfgs      = L_BFGS(x_lbfgs, 5, problem, lbfgs_file);
+    x_lbfg_fista = LBFGS_fista(x_lbfg_fista, 5, problem, lbfgs_fista_file);
 
     fclose(ista_file);
     fclose(fista_file);
