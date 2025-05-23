@@ -69,4 +69,6 @@
 
     double estimate_t0(double **A, int rows, int cols);
 
+    double* grad_LS(double *x, double *grad, Data data);
+
 #endif

@@ -1,5 +1,12 @@
 #include "algorithms.h"
 
+int len(char *str) {
+    int len = 0;
+    while (str[len] != '\0') {
+        len++;
+    }
+    return len;
+}
 
 void create_data(double **A, double *b, int rows, int cols) {
     // Create data for the ISTA and FISTA algorithms
@@ -25,6 +32,7 @@ static int read_csv_numeric(const char *path,
                             int *rows_out,
                             int *cols_out)
 {
+
     FILE *fp = fopen(path, "r");
     if (!fp) {
         perror("fopen");
@@ -233,10 +241,81 @@ int main(int argc, char **argv)
     printf("t_0: %f\n", data.t_0);
 
     /* --------------------------- Run algorithms --------------------------- */
-    FILE *ista_file = fopen("results/ista.csv", "w");
-    FILE *fista_file = fopen("results/fista.csv", "w");
-    FILE *lbfgs_file = fopen("results/lbfgs.csv", "w");
-    FILE *lbfgs_fista_file = fopen("results/lbfgs_fista.csv", "w");
+    char* word;
+    int len_word = 0;
+    if (argv[1] != NULL) {
+        int lenarg  = len(argv[1]);
+        len_word = 0;
+
+        int i = lenarg - 1;
+        while (argv[1][i] != '.') i--;
+        i--;
+        while (argv[1][i] != '/' && i >= 0) {
+            len_word++;
+            i--;
+        }
+
+        word = malloc(len_word * sizeof(char));
+        if (!word || len_word <= 0) {
+            fprintf(stderr, "Memory allocation failed for word\n");
+            return -1;
+        }
+        if (argv[1][i] == '/') i++;
+
+        printf("i: %d, len_word: %d\n", i, len_word);
+        strncpy(word, argv[1] + i, len_word);
+        word[len_word] = '\0';
+    }
+    else {
+        len_word = 7;
+        word = malloc(len_word * sizeof(char));
+        if (!word || len_word <= 0) {
+            fprintf(stderr, "Memory allocation failed for word\n");
+            return -1;
+        }
+        strcpy(word, "random");
+    }
+    printf("word: %s\n", word);
+    
+    char lambda_1[10];
+    sprintf(lambda_1, "%.1f", (float)LAMBDA_1); 
+    char lambda_2[10];
+    sprintf(lambda_2, "%.1f", (float)LAMBDA_2);
+
+    char word_lambda_dot_csv[256];
+    sprintf(word_lambda_dot_csv, "%s_%s_%s.csv", word, lambda_1, lambda_2);
+
+    char *ista_file_name = malloc((len_word + 100) * sizeof(char));
+    strcpy(ista_file_name, "results/ista_");
+    strcat(ista_file_name, word_lambda_dot_csv);
+    FILE *ista_file = fopen(ista_file_name, "w");
+
+    char *fista_file_name = malloc((len_word + 100) * sizeof(char));
+    strcpy(fista_file_name, "results/fista_");
+    strcat(fista_file_name, word_lambda_dot_csv);
+    FILE *fista_file = fopen(fista_file_name, "w");
+
+    char *lbfgs_file_name = malloc((len_word + 100) * sizeof(char));
+    strcpy(lbfgs_file_name, "results/lbfgs_");
+    strcat(lbfgs_file_name, word_lambda_dot_csv);
+    FILE *lbfgs_file;
+    if (LAMBDA_1 == 0) lbfgs_file = fopen(lbfgs_file_name, "w");
+
+    char *lbfgs_fista_file_name = malloc((len_word + 100) * sizeof(char));
+    strcpy(lbfgs_fista_file_name, "results/lbfgs_fista_");
+    strcat(lbfgs_fista_file_name, word_lambda_dot_csv);
+    FILE *lbfgs_fista_file = fopen(lbfgs_fista_file_name, "w");
+
+    free(word);
+    free(ista_file_name);
+    free(fista_file_name);
+    free(lbfgs_file_name);
+    free(lbfgs_fista_file_name);
+
+    if (!ista_file || !fista_file || !lbfgs_file || !lbfgs_fista_file) {
+        perror("fopen results");
+        return -1;
+    }
     if (!ista_file || !fista_file || !lbfgs_file || !lbfgs_fista_file) {
         perror("fopen results");
         return -1;
@@ -244,8 +323,8 @@ int main(int argc, char **argv)
 
     x_ista       = ista(x_ista, problem, ista_file);
     x_fista      = fista(x_fista, problem, fista_file);
-    x_lbfgs      = L_BFGS(x_lbfgs, 5, problem, lbfgs_file);
     x_lbfg_fista = LBFGS_fista(x_lbfg_fista, 5, problem, lbfgs_fista_file);
+    if (LAMBDA_1 == 0) x_lbfgs      = L_BFGS(x_lbfgs, 5, problem, lbfgs_file);
 
     fclose(ista_file);
     fclose(fista_file);

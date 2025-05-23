@@ -26,13 +26,16 @@ double* ista(double *x, Problem problem, FILE *file) {
     clock_t start_time = clock();
     if (file != NULL) {
         // Write header to the file
-        fprintf(file, "Iteration,t_k,gradnorm,objective,time\n");
+        fprintf(file, "Iteration,t_k,gradnorm,objective,time,grad_time,prox_time\n");
     }
     
     for (int iter = 0; iter < MAX_ITER; iter++) {
 
+        clock_t grad_start_time = clock();
         // compute gradient g(x_k) = A^T(Ax_k - b)
         compute_gradient(A, b, x, grad, rows, cols);
+        clock_t grad_end_time = clock();
+        double grad_time = (double)(grad_end_time - grad_start_time) / CLOCKS_PER_SEC;
 
         // compute new t_k
         //t_k = back_tracking_line_search(x, grad, data); 
@@ -41,14 +44,17 @@ double* ista(double *x, Problem problem, FILE *file) {
         for (int i = 0; i < cols; i++) {
             x_new[i] = x[i] - t_k * grad[i];
         }
+        clock_t prox_start_time = clock();
         //shrink (x_k - t_k * grad; LAMBDA_1 * t_k)
         shrink(x_new, LAMBDA_1 * t_k, cols);
+        clock_t prox_end_time = clock();
+        double prox_time = (double)(prox_end_time - prox_start_time) / CLOCKS_PER_SEC;
 
         if (file != NULL) {
             // Write iteration data to the file
             clock_t current_time = clock();
             double elapsed_time = (double)(current_time - start_time) / CLOCKS_PER_SEC;
-            fprintf(file, "%d,%f,%f,%f,%f\n", iter, t_k, calculate_norm(grad, cols), f(A, b, x, rows, cols), elapsed_time);
+            fprintf(file, "%d,%f,%f,%f,%f,%f,%f\n", iter, t_k, calculate_norm(grad, cols), f(A, b, x, rows, cols), elapsed_time, grad_time, prox_time);
             fflush(file); // Flush the file buffer to ensure data is written immediately
         }
 
@@ -69,48 +75,6 @@ double* ista(double *x, Problem problem, FILE *file) {
     free(x_new);
 
     return x;
-}
-
-double* grad_LS(double *x, double *grad, Data data) {
-    double **A = data.A;
-    double *b = data.b;
-    int rows = data.rows;
-    int cols = data.cols;
-
-    // Compute gradient: grad = A^T * (A*x - b)
-    double *tmp_matrix = (double *)malloc(rows * sizeof(double));
-    if (tmp_matrix == NULL) {
-        fprintf(stderr, "Memory allocation failed\n");
-        return NULL; 
-    }
-    mat_vec_mult(A, x, tmp_matrix, rows, cols);
-
-    for (int i = 0; i < rows; i++) {
-        tmp_matrix[i] -= b[i];  // Compute Ax - b
-    }
-
-    for (int j = 0; j < cols; j++) {
-        grad[j] = 0;
-        // Compute A^T * (Ax - b)
-        for (int i = 0; i < rows; i++) {
-            grad[j] += A[i][j] * tmp_matrix[i];
-        }
-    }
-
-    // Free temporary memory
-    free(tmp_matrix);
-    return grad;
-}
-
-//
-void prox_l2(double *x, double lambda, int n) {
-    for (int i = 0; i < n; i++) {
-        if (x[i] >! lambda) {
-            x[i] = (1- lambda/dot_product(x, x, n)) * x[i];
-        } else {
-            x[i] = 0;
-        }
-    }
 }
 
 // FISTA Algorithm
@@ -145,26 +109,28 @@ double* fista(double *x, Problem problem, FILE *file) {
     clock_t start_time = clock();
     if (file != NULL) {
         // Write header to the file
-        fprintf(file, "Iteration,t_k,gradnorm,objective,time\n");
+        fprintf(file, "Iteration,t_k,gradnorm,objective,time,grad_time,prox_time\n");
     }
 
     for (int iter = 0; iter < MAX_ITER; iter++) {
 
+        clock_t grad_start_time = clock();
         // compute gradient g(y_k) = A^T(Ay_k - b)
-        //compute_gradient(A, b, y, grad, rows, cols);
-        grad_LS(y, grad, data);
+        compute_gradient(A, b, y, grad, rows, cols);
+        clock_t grad_end_time = clock();
+        double grad_time = (double)(grad_end_time - grad_start_time) / CLOCKS_PER_SEC;
 
         // compute new t_k
-        // t_k = back_tracking_line_search(x, grad, data);
-        prox_l2(y, 1, cols);
-
+        //t_k = back_tracking_line_search(x, grad, data);
+        
         // x_new = y - t_k * grad g(y_k)
         for (int i = 0; i < cols; i++)
             x_new[i] = y[i] - t_k * grad[i];
         
-        //shrink (x_k - t_k * grad; LAMBDA_1 * t_k)
-        //shrink(x_new, LAMBDA_1 * t_k, cols);
-        
+        clock_t prox_start_time = clock();
+        shrink(x_new, LAMBDA_1 * t_k, cols);
+        clock_t prox_end_time = clock();
+        double prox_time = (double)(prox_end_time - prox_start_time) / CLOCKS_PER_SEC;
 
         //Update momentum factor
         momentum_factor_new = (1.0 + sqrt(1.0 + 4.0 * momentum_factor* momentum_factor)) / 2.0;
@@ -183,7 +149,7 @@ double* fista(double *x, Problem problem, FILE *file) {
             // Write iteration data to the file
             clock_t current_time = clock();
             double elapsed_time = (double)(current_time - start_time) / CLOCKS_PER_SEC;
-            fprintf(file, "%d,%f,%f,%f,%f\n", iter, t_k, calculate_norm(grad, cols), f(A, b, x, rows, cols), elapsed_time);
+            fprintf(file, "%d,%f,%f,%f,%f,%f,%f\n", iter, t_k, calculate_norm(grad, cols), f(A, b, x, rows, cols), elapsed_time, grad_time, prox_time);
             fflush(file); // Flush the file buffer to ensure data is written immediately
         }
 
@@ -206,31 +172,6 @@ double* fista(double *x, Problem problem, FILE *file) {
     free(y);
     return x;
 }
-
-//typedef double (*objective_func)(double **A, double *b, double *x, int rows, int cols);
-//Compute the proximal gradiant using L-BFGS
-
-// Proximal operator using BFGS (simplified, not full BFGS implementation)
-/*double* prox_bfgs(double *v, double lambda, int n, void (*grad_g)(double*, double*, int), int max_iter, double tol) {
-    double *x = (double*)malloc(n * sizeof(double));
-    double *grad = (double*)malloc(n * sizeof(double));
-    for (int i = 0; i < n; i++) x[i] = v[i]; // Initialize x = v
-
-    for (int iter = 0; iter < max_iter; iter++) {
-        prox_objective_grad(x, v, lambda, n, grad_g, grad);
-
-        // Simple gradient descent step (replace with BFGS update for real use)
-        double alpha = 1e-2; // Step size, should use line search or BFGS update
-        for (int i = 0; i < n; i++) x[i] -= alpha * grad[i];
-
-        // Check convergence
-        double norm = 0.0;
-        for (int i = 0; i < n; i++) norm += grad[i] * grad[i];
-        if (sqrt(norm) < tol) break;
-    }
-    free(grad);
-    return x;
-    }*/
    
 static int printed = 0;
 // L-BFGS implementation
@@ -265,10 +206,11 @@ double* L_BFGS(double* x, int m, Problem problem, FILE *file) {
     clock_t start_time = clock();
     if (file != NULL) {
         // Write header to the file
-        fprintf(file, "Iteration,t_k,gradnorm,objective,time\n");
+        fprintf(file, "Iteration,gradnorm,objective,time,two_loop_time,grad_time\n");
     }
 
     while (k < MAX_ITER ) {
+
         
         // q <- grad(f(x_k))
         memcpy(q, grad_old, dimensions * sizeof(double));
@@ -276,6 +218,7 @@ double* L_BFGS(double* x, int m, Problem problem, FILE *file) {
         int upper_bound = (k < m) ? k : m;
         // t_i <- rho_i * s_i^T q
         // q <- q - t_i * y_i
+        clock_t two_loop_start_time = clock();
         for (int i = upper_bound - 1; i >= 0; i--) {
             rho[i] = 1.0 / dot_product(y[i], s[i], dimensions);
             t[i] = rho[i] * dot_product(s[i], q, dimensions);
@@ -303,7 +246,8 @@ double* L_BFGS(double* x, int m, Problem problem, FILE *file) {
             for (int j = 0; j < dimensions; j++)
                 q[j] += s[i][j] * (t[i] - b);
         }
-
+        clock_t two_loop_end_time = clock();
+        double two_loop_time = (double)(two_loop_end_time - two_loop_start_time) / CLOCKS_PER_SEC;
 
         for (int i = 0; i < dimensions; i++) {
             x_old[i] = x[i];
@@ -311,13 +255,17 @@ double* L_BFGS(double* x, int m, Problem problem, FILE *file) {
         }
 
 
+        // compute new gradient
+        clock_t grad_start_time = clock();
         problem.grad_func(x, grad_new, data);
+        clock_t grad_end_time = clock();
+        double grad_time = (double)(grad_end_time - grad_start_time) / CLOCKS_PER_SEC;
         if (grad_new == NULL) {
             printf("Error: Memory allocation failed\n");
             return NULL;
         }
 
-
+        // update m matrix
         if (k >= m) {
             free(s[0]);
             free(y[0]);
@@ -346,7 +294,7 @@ double* L_BFGS(double* x, int m, Problem problem, FILE *file) {
             // Write iteration data to the file
             clock_t current_time = clock();
             double elapsed_time = (double)(current_time - start_time) / CLOCKS_PER_SEC;
-            fprintf(file, "%d,%f,%f,%f,%f\n", k, 0.0, calculate_norm(grad_old, dimensions), problem.objective_func(x, data), elapsed_time);
+            fprintf(file, "%d,%f,%f,%f,%f,%f\n", k, calculate_norm(grad_new, dimensions), problem.objective_func(x, data), elapsed_time, two_loop_time, grad_time);
             fflush(file); // Flush the file buffer to ensure data is written immediately
         }
 
@@ -411,22 +359,23 @@ double* LBFGS_fista(double *x, int m, Problem problem, FILE *file) {
     clock_t start_time = clock();
     if (file != NULL) {
         // Write header to the file
-        fprintf(file, "Iteration,t_k,gradnorm,objective,time\n");
+        fprintf(file, "Iteration,t_k,gradnorm,objective,time,grad_time,prox_time\n");
     }
     
     for (int iter = 0; iter < MAX_ITER; iter++) {
 
         // compute gradient g(y_k) = A^T(Ay_k - b)
+        clock_t grad_start_time = clock();
         grad_LS(y, grad, data);
+        clock_t grad_end_time = clock();
+        double grad_time = (double)(grad_end_time - grad_start_time) / CLOCKS_PER_SEC;
 
         // compute new t_k
         //t_k = back_tracking_line_search(x, grad, data);
 
         // x_new = y - t_k * grad g(y_k)
-        for (int i = 0; i < cols; i++){
-            u[i] = y[i] - t_k * grad[i];
-            //x_new[i] = u[i];
-        }
+        for (int i = 0; i < cols; i++) u[i] = y[i] - t_k * grad[i];
+    
         
         //compute prox
         Problem sub_prox_problem;
@@ -435,7 +384,11 @@ double* LBFGS_fista(double *x, int m, Problem problem, FILE *file) {
         sub_prox_problem.objective_func = prox_function;
         sub_prox_problem.grad_func = prox_gradient;
 
+        // Call L-BFGS to solve the subproblem
+        clock_t prox_start_time = clock();
         L_BFGS(x_new, m, sub_prox_problem, NULL);
+        clock_t prox_end_time = clock();
+        double prox_time = (double)(prox_end_time - prox_start_time) / CLOCKS_PER_SEC;
 
         //Update momentum factor
         momentum_factor_new = (1.0 + sqrt(1.0 + 4.0 * momentum_factor* momentum_factor)) / 2.0;
@@ -454,7 +407,7 @@ double* LBFGS_fista(double *x, int m, Problem problem, FILE *file) {
             // Write iteration data to the file
             clock_t current_time = clock();
             double elapsed_time = (double)(current_time - start_time) / CLOCKS_PER_SEC;
-            fprintf(file, "%d,%f,%f,%f,%f\n", iter, t_k, calculate_norm(grad, cols), f(A, b, x, rows, cols), elapsed_time);
+            fprintf(file, "%d,%f,%f,%f,%f,%f,%f\n", iter, t_k, calculate_norm(grad, cols), f(A, b, x, rows, cols), elapsed_time, grad_time, prox_time);
             fflush(file); // Flush the file buffer to ensure data is written immediately
         }
 
@@ -476,71 +429,4 @@ double* LBFGS_fista(double *x, int m, Problem problem, FILE *file) {
     free(y);
     free(u);
     return x;
-}
-
-
-//DUAL FISTA
-
-// Compute the gradient of f^*(-A^T y) = -A(A^T y + b)
-void grad_f_star(double* grad, double* A, double* ATy, double* b, int m, int n) {
-    for (int i = 0; i < m; i++) {
-        double temp = 0;
-        for (int j = 0; j < n; j++) {
-            temp += A[i * n + j] * (ATy[j] + b[j]);
-        }
-        grad[i] = -temp;
-    }
-}
-
-// Project y onto l_infinity ball of radius lambda
-void proj_linf_ball(double* y_proj, double* y, int m, double lambda) {
-    for (int i = 0; i < m; i++) {
-        if (y[i] > lambda)
-            y_proj[i] = lambda;
-        else if (y[i] < -lambda)
-            y_proj[i] = -lambda;
-        else
-            y_proj[i] = y[i];
-    }
-}
-
-// Dual FISTA
-void dual_fista(double* y, double* A, double* b, int m, int n, double lambda, int max_iter) {
-    double* y_old = (double*)calloc(m, sizeof(double));
-    double* z = (double*)calloc(m, sizeof(double));
-    double* grad = (double*)calloc(m, sizeof(double));
-    double* ATy_buf = (double*)calloc(n, sizeof(double));
-    double t = 1, t_old;
-    double t_k;
-
-    for (int k = 0; k < max_iter; k++) {
-        // Compute A^T z
-        //ATy(ATy_buf, A, z, m, n);
-
-        // Compute gradient
-        grad_f_star(grad, A, ATy_buf, b, m, n);
-
-        t_k = 1.0 / (k + 1); // Step size
-
-        // Gradient step
-        for (int i = 0; i < m; i++) {
-            y[i] = z[i] - grad[i] / t_k;
-        }
-
-        // Projection
-        proj_linf_ball(y, y, m, lambda);
-
-        // Update momentum
-        t_old = t;
-        t = (1 + sqrt(1 + 4 * t_old * t_old)) / 2;
-        for (int i = 0; i < m; i++) {
-            z[i] = y[i] + ((t_old - 1) / t) * (y[i] - y_old[i]);
-            y_old[i] = y[i];
-        }
-    }
-
-    free(y_old);
-    free(z);
-    free(grad);
-    free(ATy_buf);
 }

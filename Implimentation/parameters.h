@@ -11,7 +11,7 @@
     #define T_0 1.0
 
     // Parameters for armijo condition
-    #define C_ARMIJO 0.4 // Armijo condition constant
+    #define C_ARMIJO 1e-4 // Armijo condition constant
     #define ALPHA 0.6 // contraction factor
 
 #endif

@@ -168,7 +168,6 @@ double back_tracking_line_search(double *x, double *grad, Data data) {
 
     int iter = 0;
     while (1) {
-        
         // Compute the new x
         for (int i = 0; i < cols; i++) {           
             x_new[i] = x[i] - t * grad[i];
@@ -176,29 +175,21 @@ double back_tracking_line_search(double *x, double *grad, Data data) {
         
         shrink(x_new, LAMBDA_1 * t, cols);
         
-        // printf("iter: %i, t: %f\n", iter, t);
         // Compute the new function value
         double f_new = f(A, b, x_new, rows, cols);
         
         
         // Check the Armijo condition
         double armijo_condition = f_x - f_new;
-        /*double grad_dot = 0;
-        // Compute grad(f(x)) * direction
-        for (int i = 0; i < cols; i++) {
-            grad_dot += grad[i] * (x[i] - x_new[i]);
-            }*/
-            
             
         if (armijo_condition > C_ARMIJO * t * dot_product(grad, grad, cols)) break; // Armijo condition satisfied
+
         // if not, reduce the step size
         t  = t * ALPHA;
-        // if (iter < 1)
-            // printf("t_k: %f, f_new: %f, iter: %i, armijo_condition: %f, grad_dot: %f\n", t, f_new, iter, armijo_condition, grad);
+
         // Free the temporary x_new
         iter++;
     }
-    //printf("armijo found in %d iterations\n", iter);
     free(x_new);
     return t;
 }
@@ -252,4 +243,35 @@ double estimate_t0(double **A, int rows, int cols)
         exit(EXIT_FAILURE);
     }
     return 1.0 / L;
+}
+
+double* grad_LS(double *x, double *grad, Data data) {
+    double **A = data.A;
+    double *b = data.b;
+    int rows = data.rows;
+    int cols = data.cols;
+
+    // Compute gradient: grad = A^T * (A*x - b)
+    double *tmp_matrix = (double *)malloc(rows * sizeof(double));
+    if (tmp_matrix == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        return NULL; 
+    }
+    mat_vec_mult(A, x, tmp_matrix, rows, cols);
+
+    for (int i = 0; i < rows; i++) {
+        tmp_matrix[i] -= b[i];  // Compute Ax - b
+    }
+
+    for (int j = 0; j < cols; j++) {
+        grad[j] = 0;
+        // Compute A^T * (Ax - b)
+        for (int i = 0; i < rows; i++) {
+            grad[j] += A[i][j] * tmp_matrix[i];
+        }
+    }
+
+    // Free temporary memory
+    free(tmp_matrix);
+    return grad;
 }
