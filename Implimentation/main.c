@@ -12,6 +12,91 @@ void create_data(double **A, double *b, int rows, int cols) {
     }
 }
 
+/* -------------------------------------------------------------------------
+   Utility: read a purely‑numeric CSV file where the LAST column is the target
+   vector b and the remaining columns form the matrix A (dense, row‑major).
+   On success returns 0 and sets *A_out, *b_out, *rows_out, *cols_out.
+   Memory layout: A is allocated as a contiguous block so it can be freed via
+   free(A[0]); free(A);
+   ------------------------------------------------------------------------- */
+static int read_csv_numeric(const char *path,
+                            double ***A_out,
+                            double **b_out,
+                            int *rows_out,
+                            int *cols_out)
+{
+    FILE *fp = fopen(path, "r");
+    if (!fp) {
+        perror("fopen");
+        return -1;
+    }
+
+    char line[1<<15];               /* 32 KiB per line  */
+    int rows = 0, cols = 0;
+
+    /* Pass 1: count rows & columns */
+    if (fgets(line, sizeof line, fp)) {
+        /* handle possible UTF‑8 BOM */
+        char *p = line;
+        if ((unsigned char)p[0]==0xEF && (unsigned char)p[1]==0xBB && (unsigned char)p[2]==0xBF)
+            p += 3;
+        for (; *p; ++p) if (*p == ',') ++cols;
+        ++cols;     /* commas + 1 = columns */
+        ++rows;
+    }
+    while (fgets(line, sizeof line, fp)) ++rows;
+    rewind(fp);
+
+    if (cols < 2) {
+        fprintf(stderr, "CSV must contain at least 2 columns (features + target)\n");
+        fclose(fp);
+        return -1;
+    }
+
+    int feat_cols = cols - 1;       /* last column = b */
+
+    /* allocate contiguous matrix A and vector b */
+    double *block = malloc((size_t)rows * feat_cols * sizeof *block);
+    double **A    = malloc((size_t)rows * sizeof *A);
+    double *b     = malloc((size_t)rows * sizeof *b);
+    if (!block || !A || !b) {
+        perror("malloc");
+        fclose(fp);
+        return -1;
+    }
+    for (int i = 0; i < rows; ++i) A[i] = block + (size_t)i * feat_cols;
+
+    /* Pass 2: parse numbers */
+    int r = 0;
+    while (fgets(line, sizeof line, fp) && r < rows) {
+        int c = 0;
+        char *tok = strtok(line, ",\n\r");
+        while (tok && c < cols) {
+            double val = strtod(tok, NULL);
+            if (c < feat_cols)
+                A[r][c] = val;
+            else
+                b[r] = val;  /* last column */
+            ++c;
+            tok = strtok(NULL, ",\n\r");
+        }
+        if (c != cols) {
+            fprintf(stderr, "Line %d has %d columns instead of %d – aborting.\n", r+1, c, cols);
+            fclose(fp);
+            free(block); free(A); free(b);
+            return -1;
+        }
+        ++r;
+    }
+    fclose(fp);
+
+    *A_out   = A;
+    *b_out   = b;
+    *rows_out = rows;
+    *cols_out = feat_cols;
+    return 0;
+}
+
 double l2_obj(double *x, double **A, double *b, int rows, int cols) {
     double obj = 0.0;
     double l2_norm = 0.0;
@@ -64,125 +149,118 @@ void prox_objective_grad(double *x, double *v, double lambda, int n, void (*grad
 }
 
 
-int main() {
+/* ------------------------------------------------------------------------- */
+int main(int argc, char **argv)
+{
+    srand((unsigned)time(NULL));
 
-    // Example usage of the ISTA and FISTA algorithms
-    int rows = 1000; // Number of rows in A
-    int cols = 1000;  // Number of columns in A
-    double **A = (double **)malloc(rows * sizeof(double *));
-    for (int i = 0; i < rows; i++) A[i] = (double *)malloc(cols * sizeof(double));
-    double *b = (double *)malloc(rows * sizeof(double));
-    double *x_ista = (double *)malloc(cols * sizeof(double));
-    double *x_fista = (double *)malloc(cols * sizeof(double));
-    double *x_lbfgs = (double *)malloc(cols * sizeof(double));
-    double *x_lbfg_fista = (double *)malloc(cols * sizeof(double));
-    if (A == NULL || b == NULL || x_ista == NULL || x_fista == NULL || x_lbfgs == NULL || x_lbfg_fista == NULL) {
-        fprintf(stderr, "Memory allocation failed\n");
+    /* Default synthetic dimensions */
+    int rows = 100;
+    int cols = 100;
+    double **A = NULL;
+    double *b  = NULL;
+
+    /* ----------------------------------------------------------
+       If the user supplied a file path, try to load it.
+       ---------------------------------------------------------- */
+    if (argc > 1) {
+        if (read_csv_numeric(argv[1], &A, &b, &rows, &cols) == 0) {
+            printf("Loaded %d×%d matrix from ‘%s’ (last column used as target)\n",
+                   rows, cols, argv[1]);
+        } else {
+            fprintf(stderr, "Falling back to random data.\n");
+        }
+    }
+
+    /* ----------------------------------------------------------
+       Fallback: create synthetic data if no CSV was given or
+       loading failed.
+       ---------------------------------------------------------- */
+    if (!A) {
+        /* allocate dense matrix */
+        A = malloc((size_t)rows * sizeof *A);
+        if (!A) { perror("malloc"); return -1; }
+        for (int i = 0; i < rows; ++i) {
+            A[i] = malloc((size_t)cols * sizeof **A);
+            if (!A[i]) { perror("malloc"); return -1; }
+        }
+        b = malloc((size_t)rows * sizeof *b);
+        if (!b) { perror("malloc"); return -1; }
+
+        create_data(A, b, rows, cols);
+        printf("Generated synthetic %d×%d matrix.\n", rows, cols);
+    }
+
+    /* ---------------------------------------
+       Solution vectors (initialised to 0/1)
+       --------------------------------------- */
+    double *x_ista       = calloc((size_t)cols, sizeof *x_ista);
+    double *x_fista      = calloc((size_t)cols, sizeof *x_fista);
+    double *x_lbfgs      = calloc((size_t)cols, sizeof *x_lbfgs);
+    double *x_lbfg_fista = calloc((size_t)cols, sizeof *x_lbfg_fista);
+    if (!x_ista || !x_fista || !x_lbfgs || !x_lbfg_fista) {
+        fprintf(stderr, "Memory allocation failed for solution vectors\n");
         return -1;
     }
-    // Initialize A, b, and x with random values
-    create_data(A, b, rows, cols);
 
-    Data data;
-    data.A = A;
-    data.b = b;
-    data.rows = rows;
-    data.cols = cols;
-    data.t_0 = estimate_t0(A, rows, cols);
-    data.prox_func = l2_func;
-    data.prox_grad = l2_grad;
+    for (int j = 0; j < cols; ++j) {
+        x_ista[j] = 1.0;
+        x_fista[j] = 1.0;
+        x_lbfgs[j] = 1.0;
+        x_lbfg_fista[j] = 30.0;
+    }
 
-    Problem problem;
-    problem.data = data;
-    problem.objective_func = obj;
-    problem.grad_func = grad;
-    
+    /* ---------------------------------------
+       Package data into the structures used by
+       the optimisation routines.
+       --------------------------------------- */
+    Data data = {
+        .A = A,
+        .b = b,
+        .rows = rows,
+        .cols = cols,
+        .t_0 = estimate_t0(A, rows, cols),
+        .prox_func = l2_func,
+        .prox_grad = l2_grad
+    };
+
+    Problem problem = {
+        .data = data,
+        .objective_func = obj,
+        .grad_func = grad
+    };
+
     printf("t_0: %f\n", data.t_0);
-    // Initialize x with zeros
-    for (int i = 0; i < cols; i++) x_ista[i] = 1.0;
 
-    // Initialize x with zeros
-    for (int i = 0; i < cols; i++) x_fista[i] = 1.0;
-
-    // Initialize x with zeros
-    for (int i = 0; i < cols; i++) x_lbfgs[i] = 1.0;
-
-    // Initialize x with zeros
-    for (int i = 0; i < cols; i++) x_lbfg_fista[i] = 30.0;
-
-    
-    // Run ISTA
+    /* --------------------------- Run algorithms --------------------------- */
     FILE *ista_file = fopen("results/ista.csv", "w");
-    if (ista_file == NULL) {
-        fprintf(stderr, "Error opening file for writing\n");
-        return -1;
-    }
-    x_ista = ista(x_ista, problem, ista_file);
-    fclose(ista_file);
-    
     FILE *fista_file = fopen("results/fista.csv", "w");
-    if (fista_file == NULL) {
-        fprintf(stderr, "Error opening file for writing\n");
-        return -1;
-    }
-    // Run FISTA
-    x_fista = fista(x_fista, problem, fista_file);
-    fclose(fista_file);
-
     FILE *lbfgs_file = fopen("results/lbfgs.csv", "w");
-    if (lbfgs_file == NULL) {
-        fprintf(stderr, "Error opening file for writing\n");
-        return -1;
-    }
-    // Run LBFGS
-    x_lbfgs = L_BFGS(x_lbfgs, 5, problem, lbfgs_file);
-    fclose(lbfgs_file);
-
     FILE *lbfgs_fista_file = fopen("results/lbfgs_fista.csv", "w");
-    if (lbfgs_fista_file == NULL) {
-        fprintf(stderr, "Error opening file for writing\n");
+    if (!ista_file || !fista_file || !lbfgs_file || !lbfgs_fista_file) {
+        perror("fopen results");
         return -1;
     }
-    // Run LBFGS with FISTA
+
+    x_ista       = ista(x_ista, problem, ista_file);
+    x_fista      = fista(x_fista, problem, fista_file);
+    x_lbfgs      = L_BFGS(x_lbfgs, 5, problem, lbfgs_file);
     x_lbfg_fista = LBFGS_fista(x_lbfg_fista, 5, problem, lbfgs_fista_file);
+
+    fclose(ista_file);
+    fclose(fista_file);
+    fclose(lbfgs_file);
     fclose(lbfgs_fista_file);
-    
 
-    // Print results
-    //printf("ista\n");
-    //print vectors
-    //for (int i = 0; i < cols; i++) {
-    //    printf("%f,", x_ista[i]);
-    //}
-    //printf("\n");
+    /* --------------------------- clean‑up --------------------------- */
+    free(x_ista);       free(x_fista);
+    free(x_lbfgs);      free(x_lbfg_fista);
 
-    //printf("\nFista\n");
-    //print vectors
-    //for (int i = 0; i < cols; i++) {
-    //    printf("%f, ", x_fista[i]);
-   // }
-    //printf("\n");
-
-    //printf("\nLBFGS\n");
-    //print vectors
-    //for (int i = 0; i < cols; i++) {
-    //    printf("%f, ", x_lbfgs[i]);
-   // }
-    //printf("\n");
-
-    //printf("\nLBFGS with Fista\n");
-    //print vectors
-    //for (int i = 0; i < cols; i++) {
-    //    printf("%f, ", x_lbfg_fista[i]);
-   // }
-    //printf("\n");
-
-    // Free allocated memory
-    for (int i = 0; i < rows; i++) free(A[i]);
-    free(A);
+    if (A) {
+        free(A[0]); /* contiguous block if loaded from CSV */
+        free(A);
+    }
     free(b);
-    free(x_ista);
-    free(x_fista);
-    free(x_lbfgs);
+
     return 0;
 }

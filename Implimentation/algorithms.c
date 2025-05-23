@@ -71,6 +71,48 @@ double* ista(double *x, Problem problem, FILE *file) {
     return x;
 }
 
+double* grad_LS(double *x, double *grad, Data data) {
+    double **A = data.A;
+    double *b = data.b;
+    int rows = data.rows;
+    int cols = data.cols;
+
+    // Compute gradient: grad = A^T * (A*x - b)
+    double *tmp_matrix = (double *)malloc(rows * sizeof(double));
+    if (tmp_matrix == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        return NULL; 
+    }
+    mat_vec_mult(A, x, tmp_matrix, rows, cols);
+
+    for (int i = 0; i < rows; i++) {
+        tmp_matrix[i] -= b[i];  // Compute Ax - b
+    }
+
+    for (int j = 0; j < cols; j++) {
+        grad[j] = 0;
+        // Compute A^T * (Ax - b)
+        for (int i = 0; i < rows; i++) {
+            grad[j] += A[i][j] * tmp_matrix[i];
+        }
+    }
+
+    // Free temporary memory
+    free(tmp_matrix);
+    return grad;
+}
+
+//
+void prox_l2(double *x, double lambda, int n) {
+    for (int i = 0; i < n; i++) {
+        if (x[i] >! lambda) {
+            x[i] = (1- lambda/dot_product(x, x, n)) * x[i];
+        } else {
+            x[i] = 0;
+        }
+    }
+}
+
 // FISTA Algorithm
 double* fista(double *x, Problem problem, FILE *file) {
     Data data = problem.data;
@@ -109,17 +151,20 @@ double* fista(double *x, Problem problem, FILE *file) {
     for (int iter = 0; iter < MAX_ITER; iter++) {
 
         // compute gradient g(y_k) = A^T(Ay_k - b)
-        compute_gradient(A, b, y, grad, rows, cols);
+        //compute_gradient(A, b, y, grad, rows, cols);
+        grad_LS(y, grad, data);
 
         // compute new t_k
         // t_k = back_tracking_line_search(x, grad, data);
+        prox_l2(y, 1, cols);
 
         // x_new = y - t_k * grad g(y_k)
         for (int i = 0; i < cols; i++)
             x_new[i] = y[i] - t_k * grad[i];
         
         //shrink (x_k - t_k * grad; LAMBDA_1 * t_k)
-        shrink(x_new, LAMBDA_1 * t_k, cols);
+        //shrink(x_new, LAMBDA_1 * t_k, cols);
+        
 
         //Update momentum factor
         momentum_factor_new = (1.0 + sqrt(1.0 + 4.0 * momentum_factor* momentum_factor)) / 2.0;
@@ -333,37 +378,6 @@ double* L_BFGS(double* x, int m, Problem problem, FILE *file) {
     return x;
 }
 
-double* grad_LS(double *x, double *grad, Data data) {
-    double **A = data.A;
-    double *b = data.b;
-    int rows = data.rows;
-    int cols = data.cols;
-
-    // Compute gradient: grad = A^T * (A*x - b)
-    double *tmp_matrix = (double *)malloc(rows * sizeof(double));
-    if (tmp_matrix == NULL) {
-        fprintf(stderr, "Memory allocation failed\n");
-        return NULL; 
-    }
-    mat_vec_mult(A, x, tmp_matrix, rows, cols);
-
-    for (int i = 0; i < rows; i++) {
-        tmp_matrix[i] -= b[i];  // Compute Ax - b
-    }
-
-    for (int j = 0; j < cols; j++) {
-        grad[j] = 0;
-        // Compute A^T * (Ax - b)
-        for (int i = 0; i < rows; i++) {
-            grad[j] += A[i][j] * tmp_matrix[i];
-        }
-    }
-
-    // Free temporary memory
-    free(tmp_matrix);
-    return grad;
-}
-
 
 double* LBFGS_fista(double *x, int m, Problem problem, FILE *file) {
     Data data = problem.data;
@@ -501,7 +515,7 @@ void dual_fista(double* y, double* A, double* b, int m, int n, double lambda, in
 
     for (int k = 0; k < max_iter; k++) {
         // Compute A^T z
-        ATy(ATy_buf, A, z, m, n);
+        //ATy(ATy_buf, A, z, m, n);
 
         // Compute gradient
         grad_f_star(grad, A, ATy_buf, b, m, n);
