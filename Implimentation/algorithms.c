@@ -463,3 +463,70 @@ double* LBFGS_fista(double *x, int m, Problem problem, FILE *file) {
     free(u);
     return x;
 }
+
+
+//DUAL FISTA
+
+// Compute the gradient of f^*(-A^T y) = -A(A^T y + b)
+void grad_f_star(double* grad, double* A, double* ATy, double* b, int m, int n) {
+    for (int i = 0; i < m; i++) {
+        double temp = 0;
+        for (int j = 0; j < n; j++) {
+            temp += A[i * n + j] * (ATy[j] + b[j]);
+        }
+        grad[i] = -temp;
+    }
+}
+
+// Project y onto l_infinity ball of radius lambda
+void proj_linf_ball(double* y_proj, double* y, int m, double lambda) {
+    for (int i = 0; i < m; i++) {
+        if (y[i] > lambda)
+            y_proj[i] = lambda;
+        else if (y[i] < -lambda)
+            y_proj[i] = -lambda;
+        else
+            y_proj[i] = y[i];
+    }
+}
+
+// Dual FISTA
+void dual_fista(double* y, double* A, double* b, int m, int n, double lambda, int max_iter) {
+    double* y_old = (double*)calloc(m, sizeof(double));
+    double* z = (double*)calloc(m, sizeof(double));
+    double* grad = (double*)calloc(m, sizeof(double));
+    double* ATy_buf = (double*)calloc(n, sizeof(double));
+    double t = 1, t_old;
+    double t_k;
+
+    for (int k = 0; k < max_iter; k++) {
+        // Compute A^T z
+        ATy(ATy_buf, A, z, m, n);
+
+        // Compute gradient
+        grad_f_star(grad, A, ATy_buf, b, m, n);
+
+        t_k = 1.0 / (k + 1); // Step size
+
+        // Gradient step
+        for (int i = 0; i < m; i++) {
+            y[i] = z[i] - grad[i] / t_k;
+        }
+
+        // Projection
+        proj_linf_ball(y, y, m, lambda);
+
+        // Update momentum
+        t_old = t;
+        t = (1 + sqrt(1 + 4 * t_old * t_old)) / 2;
+        for (int i = 0; i < m; i++) {
+            z[i] = y[i] + ((t_old - 1) / t) * (y[i] - y_old[i]);
+            y_old[i] = y[i];
+        }
+    }
+
+    free(y_old);
+    free(z);
+    free(grad);
+    free(ATy_buf);
+}
