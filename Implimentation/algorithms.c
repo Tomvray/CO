@@ -35,7 +35,7 @@ double* ista(double *x, Problem problem, FILE *file) {
         // compute gradient g(x_k) = A^T(Ax_k - b)
         compute_gradient(A, b, x, grad, rows, cols);
         clock_t grad_end_time = clock();
-        double grad_time = (double)(grad_end_time - grad_start_time) / CLOCKS_PER_SEC;
+        double grad_time = (double)(grad_end_time - grad_start_time);
 
         // compute new t_k
         //t_k = back_tracking_line_search(x, grad, data); 
@@ -48,12 +48,12 @@ double* ista(double *x, Problem problem, FILE *file) {
         //shrink (x_k - t_k * grad; LAMBDA_1 * t_k)
         shrink(x_new, LAMBDA_1 * t_k, cols);
         clock_t prox_end_time = clock();
-        double prox_time = (double)(prox_end_time - prox_start_time) / CLOCKS_PER_SEC;
+        double prox_time = (double)(prox_end_time - prox_start_time);
 
         if (file != NULL) {
             // Write iteration data to the file
             clock_t current_time = clock();
-            double elapsed_time = (double)(current_time - start_time) / CLOCKS_PER_SEC;
+            double elapsed_time = (double)(current_time - start_time);
             fprintf(file, "%d,%f,%f,%f,%f,%f,%f\n", iter, t_k, calculate_norm(grad, cols), f(A, b, x, rows, cols), elapsed_time, grad_time, prox_time);
             fflush(file); // Flush the file buffer to ensure data is written immediately
         }
@@ -118,7 +118,7 @@ double* fista(double *x, Problem problem, FILE *file) {
         // compute gradient g(y_k) = A^T(Ay_k - b)
         compute_gradient(A, b, y, grad, rows, cols);
         clock_t grad_end_time = clock();
-        double grad_time = (double)(grad_end_time - grad_start_time) / CLOCKS_PER_SEC;
+        double grad_time = (double)(grad_end_time - grad_start_time);
 
         // compute new t_k
         //t_k = back_tracking_line_search(x, grad, data);
@@ -130,7 +130,7 @@ double* fista(double *x, Problem problem, FILE *file) {
         clock_t prox_start_time = clock();
         shrink(x_new, LAMBDA_1 * t_k, cols);
         clock_t prox_end_time = clock();
-        double prox_time = (double)(prox_end_time - prox_start_time) / CLOCKS_PER_SEC;
+        double prox_time = (double)(prox_end_time - prox_start_time);
 
         //Update momentum factor
         momentum_factor_new = (1.0 + sqrt(1.0 + 4.0 * momentum_factor* momentum_factor)) / 2.0;
@@ -148,7 +148,7 @@ double* fista(double *x, Problem problem, FILE *file) {
         if (file != NULL) {
             // Write iteration data to the file
             clock_t current_time = clock();
-            double elapsed_time = (double)(current_time - start_time) / CLOCKS_PER_SEC;
+            double elapsed_time = (double)(current_time - start_time);
             fprintf(file, "%d,%f,%f,%f,%f,%f,%f\n", iter, t_k, calculate_norm(grad, cols), f(A, b, x, rows, cols), elapsed_time, grad_time, prox_time);
             fflush(file); // Flush the file buffer to ensure data is written immediately
         }
@@ -182,6 +182,7 @@ double* L_BFGS(double* x, int m, Problem problem, FILE *file) {
     double *q = malloc(dimensions * sizeof(double));
     double *grad_new = malloc(dimensions * sizeof(double));
     double **s, **y;
+    double t_k = 0;
 
     s = malloc(m * sizeof(double*));
     y = malloc(m * sizeof(double*));
@@ -206,7 +207,7 @@ double* L_BFGS(double* x, int m, Problem problem, FILE *file) {
     clock_t start_time = clock();
     if (file != NULL) {
         // Write header to the file
-        fprintf(file, "Iteration,gradnorm,objective,time,two_loop_time,grad_time\n");
+        fprintf(file, "Iteration,t_k,gradnorm,objective,time,two_loop_time,grad_time\n");
     }
 
     while (k < MAX_ITER ) {
@@ -247,7 +248,7 @@ double* L_BFGS(double* x, int m, Problem problem, FILE *file) {
                 q[j] += s[i][j] * (t[i] - b);
         }
         clock_t two_loop_end_time = clock();
-        double two_loop_time = (double)(two_loop_end_time - two_loop_start_time) / CLOCKS_PER_SEC;
+        double two_loop_time = (double)(two_loop_end_time - two_loop_start_time);
 
         for (int i = 0; i < dimensions; i++) {
             x_old[i] = x[i];
@@ -259,7 +260,7 @@ double* L_BFGS(double* x, int m, Problem problem, FILE *file) {
         clock_t grad_start_time = clock();
         problem.grad_func(x, grad_new, data);
         clock_t grad_end_time = clock();
-        double grad_time = (double)(grad_end_time - grad_start_time) / CLOCKS_PER_SEC;
+        double grad_time = (double)(grad_end_time - grad_start_time);
         if (grad_new == NULL) {
             printf("Error: Memory allocation failed\n");
             return NULL;
@@ -293,8 +294,8 @@ double* L_BFGS(double* x, int m, Problem problem, FILE *file) {
         if (file != NULL) {
             // Write iteration data to the file
             clock_t current_time = clock();
-            double elapsed_time = (double)(current_time - start_time) / CLOCKS_PER_SEC;
-            fprintf(file, "%d,%f,%f,%f,%f,%f\n", k, calculate_norm(grad_new, dimensions), problem.objective_func(x, data), elapsed_time, two_loop_time, grad_time);
+            double elapsed_time = (double)(current_time - start_time);
+            fprintf(file, "%d,%f,%f,%f,%f,%f,%f\n", k, t_k, calculate_norm(grad_new, dimensions), problem.objective_func(x, data), elapsed_time, two_loop_time, grad_time);
             fflush(file); // Flush the file buffer to ensure data is written immediately
         }
 
@@ -368,7 +369,7 @@ double* LBFGS_fista(double *x, int m, Problem problem, FILE *file) {
         clock_t grad_start_time = clock();
         grad_LS(y, grad, data);
         clock_t grad_end_time = clock();
-        double grad_time = (double)(grad_end_time - grad_start_time) / CLOCKS_PER_SEC;
+        double grad_time = (double)(grad_end_time - grad_start_time);
 
         // compute new t_k
         //t_k = back_tracking_line_search(x, grad, data);
@@ -388,7 +389,7 @@ double* LBFGS_fista(double *x, int m, Problem problem, FILE *file) {
         clock_t prox_start_time = clock();
         L_BFGS(x_new, m, sub_prox_problem, NULL);
         clock_t prox_end_time = clock();
-        double prox_time = (double)(prox_end_time - prox_start_time) / CLOCKS_PER_SEC;
+        double prox_time = (double)(prox_end_time - prox_start_time);
 
         //Update momentum factor
         momentum_factor_new = (1.0 + sqrt(1.0 + 4.0 * momentum_factor* momentum_factor)) / 2.0;
@@ -406,7 +407,7 @@ double* LBFGS_fista(double *x, int m, Problem problem, FILE *file) {
         if (file != NULL) {
             // Write iteration data to the file
             clock_t current_time = clock();
-            double elapsed_time = (double)(current_time - start_time) / CLOCKS_PER_SEC;
+            double elapsed_time = (double)(current_time - start_time);
             fprintf(file, "%d,%f,%f,%f,%f,%f,%f\n", iter, t_k, calculate_norm(grad, cols), f(A, b, x, rows, cols), elapsed_time, grad_time, prox_time);
             fflush(file); // Flush the file buffer to ensure data is written immediately
         }
